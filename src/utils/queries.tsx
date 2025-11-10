@@ -7,23 +7,27 @@ import {TestCase} from "../types/TestCase.ts";
 import {FileType} from "../types/FileType.ts";
 import {Rule} from "../types/Rule.ts";
  import {useAuth0} from "@auth0/auth0-react";
- import {useEffect} from "react";
+ import {useEffect, useMemo, useState} from "react";
 
 
-export const useSnippetsOperations = () => {
-   const {getAccessTokenSilently} = useAuth0()
+export const useSnippetsOperations = (): SnippetOperations => {
+    const {getAccessTokenSilently} = useAuth0();
+    const [token, setToken] = useState<string | null>(null);
 
-   useEffect(() => {
-       getAccessTokenSilently()
-           .then(token => {
-               console.log(token)
-           })
-           .catch(error => console.error(error));
-   });
+    useEffect(() => {
+        let mounted = true;
+        getAccessTokenSilently()
+            .then(t => mounted && setToken(t))
+            .catch(err => console.error('Token error', err));
+        return () => { mounted = false; };
+    }, [getAccessTokenSilently]);
 
-  const snippetOperations: SnippetOperations = new FakeSnippetOperations(/* getAccessTokenSilently */); // TODO: Replace with your implementation
+    const operations = useMemo(() => {
+        // Aquí sustituir FakeSnippetOperations por la implementación real que agrega Authorization
+        return new FakeSnippetOperations();
+    }, [token]);
 
-  return snippetOperations
+    return operations;
 }
 
 export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetName?: string) => {

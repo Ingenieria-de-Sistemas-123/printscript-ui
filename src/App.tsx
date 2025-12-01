@@ -1,32 +1,29 @@
-import './App.css';
-import {RouterProvider} from "react-router";
-import {createBrowserRouter} from "react-router-dom";
+import "./App.css";
+import { RouterProvider } from "react-router";
+import { createBrowserRouter } from "react-router-dom";
 import HomeScreen from "./screens/Home.tsx";
-import {QueryClient, QueryClientProvider} from "react-query";
 import RulesScreen from "./screens/Rules.tsx";
-// import {withAuthenticationRequired} from "@auth0/auth0-react";
+import { QueryClient, QueryClientProvider } from "react-query";
+import Auth0ProviderWithNavigate from "./auth/Auth0ProviderWithNavigate";
+import { withAuthenticationRequired } from "@auth0/auth0-react";
 
 const router = createBrowserRouter([
-    {
-        path: "/",
-        element: <HomeScreen/>
-    },
-    {
-        path: '/rules',
-        element: <RulesScreen/>
-    }
+    { path: "/", element: <HomeScreen /> },
+    { path: "/rules", element: <RulesScreen /> },
 ]);
 
-export const queryClient = new QueryClient()
+export const queryClient = new QueryClient();
+
 const App = () => {
     return (
         <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router}/>
+            <Auth0ProviderWithNavigate>
+                <RouterProvider router={router} />
+            </Auth0ProviderWithNavigate>
         </QueryClientProvider>
     );
-}
+};
 
-// To enable Auth0 integration change the following line
-export default App;
-// for this one:
-// export default withAuthenticationRequired(App);
+export default withAuthenticationRequired(App);
+
+// Si querés sin login global, exportá App en vez de withAuthenticationRequired(App)

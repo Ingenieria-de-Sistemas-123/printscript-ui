@@ -7,8 +7,10 @@ import {Drawer} from "@mui/material";
 import {useGetSnippets} from "../utils/queries.tsx";
 import {usePaginationContext} from "../contexts/paginationContext.tsx";
 import useDebounce from "../hooks/useDebounce.ts";
+import {usePermissionSync} from "../hooks/usePermissionSync.ts";
 
 const HomeScreen = () => {
+  const { userAccount, loading, error } = usePermissionSync();
   const {id: paramsId} = useParams<{ id: string }>();
   const [searchTerm, setSearchTerm] = useState('');
   const [snippetName, setSnippetName] = useState('');
@@ -16,7 +18,10 @@ const HomeScreen = () => {
   const {page, page_size, count, handleChangeCount} = usePaginationContext()
   const {data, isLoading} = useGetSnippets(page, page_size, snippetName)
 
-  useEffect(() => {
+  console.log("[HomeScreen] userAccount:", userAccount, "loading:", loading, "error:", error);
+
+
+    useEffect(() => {
     if (data?.count && data.count != count) {
       handleChangeCount(data.count)
     }

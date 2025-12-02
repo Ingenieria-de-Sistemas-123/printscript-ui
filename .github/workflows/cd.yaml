@@ -1,0 +1,81 @@
+name: "Continuous Deployment"
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+jobs:
+  push_to_registry:
+    name: Push Docker image to GitHub Packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to github packages for prod
+        id: docker_build
+        if: github.ref == 'refs/heads/master'
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/ingenieria-de-sistemas-123/printscript-ui:prod-latest
+
+      - name: Push to github packages for dev
+        id: docker_build_dev
+        if: github.ref == 'refs/heads/dev'
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/ingenieria-de-sistemas-123/printscript-ui:dev-latest
+
+  #    - name: Set up Prod SSH key
+  #      uses: webfactory/ssh-agent@v0.5.4
+  #      if: github.ref == 'refs/heads/master'
+  #      with:
+  #        ssh-private-key: ${{ secrets.PROD_KEY }}
+
+  #    - name: Deploy to Prod VM
+  #      if: github.ref == 'refs/heads/master'
+  #      run: |
+  #        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_PROD }} \
+  #        "cd ${{secrets.WORKDIR}} && \
+  #        docker compose stop ui && \
+  #        docker compose rm -f ui && \
+  #        docker compose pull ui && \
+  #        docker compose up -d ui"
+
+      - name: Set up Dev SSH key
+        uses: webfactory/ssh-agent@v0.5.4
+        if: github.ref == 'refs/heads/dev'
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Deploy to Dev VM
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+          "cd ${{secrets.WORKDIR}} && \
+          docker compose stop ui && \
+          docker compose rm -f ui && \
+          docker compose pull ui && \
+          docker compose up -d ui"

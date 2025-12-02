@@ -15,7 +15,7 @@ export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetN
   const snippetOperations = useSnippetsOperations();
   return useQuery<PaginatedSnippets, Error>(
       ["listSnippets", page, pageSize, snippetName],
-      () => snippetOperations.listSnippetDescriptors(page, pageSize, snippetName)
+      () => snippetOperations.listSnippetDescriptors(page, pageSize)
   );
 };
 
@@ -63,7 +63,7 @@ export const useGetUsers = (name: string = "", page: number = 0, pageSize: numbe
 export const useShareSnippet = () => {
   const snippetOperations = useSnippetsOperations();
   return useMutation<Snippet, Error, { snippetId: string; userId: string }>(
-      ({ snippetId, userId }) => snippetOperations.shareSnippet(snippetId, userId)
+      ({ snippetId}) => snippetOperations.shareSnippet(snippetId)
   );
 };
 

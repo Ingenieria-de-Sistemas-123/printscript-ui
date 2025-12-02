@@ -253,7 +253,8 @@ export class FakeSnippetStore {
     return id
   }
 
-  testSnippet(): TestCaseResult {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  testSnippet(_: Partial<TestCase>): TestCaseResult {
     return Math.random() > 0.5 ? "success" : "fail"
   }
 

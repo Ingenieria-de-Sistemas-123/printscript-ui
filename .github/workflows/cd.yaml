@@ -1,10 +1,12 @@
 name: Publish images
+
 on:
   workflow_run:
     workflows: [ "CI" ]
     types: [ completed ]
   push:
-    branches: ['main', 'dev']
+    branches: ["main", "dev"]
+
 jobs:
   publish:
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
@@ -21,8 +23,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: "temurin"
+          java-version: "21"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -32,7 +34,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ github.token}}
+          password: ${{ github.token }}
 
       - name: Normalize owner to lowercase
         id: img
@@ -52,14 +54,39 @@ jobs:
           SAFE_BRANCH="${GITHUB_REF_NAME//\//-}"
           echo "branch=${SAFE_BRANCH}" >> "$GITHUB_OUTPUT"
 
+      # 🔹 Elegimos los valores de Auth0 según la branch (dev vs main)
+      - name: Select Auth0 env by branch
+        id: env
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "auth0_domain=${{ secrets.VITE_AUTH0_DOMAIN_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_client_id=${{ secrets.VITE_AUTH0_CLIENT_ID_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_audience=${{ secrets.VITE_AUTH0_AUDIENCE_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_callback=${{ secrets.VITE_AUTH0_CALLBACK_URL_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "permission_base_url=${{ secrets.VITE_PERMISSION_BASE_URL_PROD }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "auth0_domain=${{ secrets.VITE_AUTH0_DOMAIN }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_client_id=${{ secrets.VITE_AUTH0_CLIENT_ID }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_audience=${{ secrets.VITE_AUTH0_AUDIENCE }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_callback=${{ secrets.VITE_AUTH0_CALLBACK_URL }}" >> "$GITHUB_OUTPUT"
+            echo "permission_base_url=${{ secrets.VITE_PERMISSION_BASE_URL }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and Push Image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
+          build-args: |
+            VITE_AUTH0_DOMAIN=${{ steps.env.outputs.auth0_domain }}
+            VITE_AUTH0_CLIENT_ID=${{ steps.env.outputs.auth0_client_id }}
+            VITE_AUTH0_AUDIENCE=${{ steps.env.outputs.auth0_audience }}
+            VITE_AUTH0_CALLBACK_URL=${{ steps.env.outputs.auth0_callback }}
+            VITE_PERMISSION_BASE_URL=${{ steps.env.outputs.permission_base_url }}
           tags: |
             ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:latest
             ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:${{ steps.tag.outputs.value }}
             ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:${{ steps.tag.outputs.branch }}
-

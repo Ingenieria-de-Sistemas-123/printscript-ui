@@ -1,5 +1,4 @@
-// TypeScript
-// `src/utils/realSnippetOperations.ts`
+// src/utils/impl/realSnippetOperations.ts
 import {SnippetOperations} from '../snippetOperations'
 import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snippet'
 import {PaginatedUsers} from "../users"
@@ -11,8 +10,11 @@ import {Rule} from "../../types/Rule"
 type TokenGetter = () => Promise<string | undefined>
 const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080"
 
-async function authHeaders(getToken?: TokenGetter) {
-    const headers: Record<string,string> = { "Content-Type": "application/json" }
+async function authHeaders(getToken?: TokenGetter, includeContentType = true) {
+    const headers: Record<string,string> = {}
+    if (includeContentType) {
+        headers["Content-Type"] = "application/json"
+    }
     if (getToken) {
         const token = await getToken()
         if (token) headers["Authorization"] = `Bearer ${token}`
@@ -25,23 +27,57 @@ export class RealSnippetOperations implements SnippetOperations {
 
     async listSnippetDescriptors(page: number, pageSize: number, snippetName?: string): Promise<PaginatedSnippets> {
         const q = new URLSearchParams({ page: String(page), page_size: String(pageSize), name: snippetName ?? "" })
-        const res = await fetch(`${BASE_URL}/snippets?${q.toString()}`, { headers: await authHeaders(this.getToken) })
+        const res = await fetch(`${BASE_URL}/snippets?${q.toString()}`, {
+            headers: await authHeaders(this.getToken)
+        })
         if (!res.ok) throw new Error("Error listando snippets")
         return res.json()
     }
 
     async createSnippet(createSnippet: CreateSnippet): Promise<Snippet> {
-        const res = await fetch(`${BASE_URL}/snippets`, {
-            method: "POST",
-            headers: await authHeaders(this.getToken),
-            body: JSON.stringify(createSnippet)
+        // Crear el archivo Blob del contenido
+        const fileBlob = new Blob([createSnippet.content], { type: 'text/plain' })
+        const fileName = `${createSnippet.name}.${createSnippet.extension}`
+
+        // Crear FormData
+        const formData = new FormData()
+        formData.append('file', fileBlob, fileName)
+
+        // Crear el objeto request con los metadatos (sin content)
+        const requestData = {
+            name: createSnippet.name,
+            language: createSnippet.language,
+            description: '' // Podrías agregar esto como campo opcional en CreateSnippet
+        }
+
+        // Agregar el JSON como blob para mantener el Content-Type correcto
+        const requestBlob = new Blob([JSON.stringify(requestData)], {
+            type: 'application/json'
         })
-        if (!res.ok) throw new Error("Error creando snippet")
+        formData.append('request', requestBlob)
+
+        // Obtener headers sin Content-Type (lo maneja FormData automáticamente)
+        const headers = await authHeaders(this.getToken, false)
+        delete headers["Content-Type"] // Asegurar que no está presente
+
+        const res = await fetch(`${BASE_URL}/api/snippets`, {
+            method: "POST",
+            headers,
+            body: formData
+        })
+
+        if (!res.ok) {
+            const errorText = await res.text()
+            throw new Error(`Error creando snippet: ${res.status} - ${errorText}`)
+        }
+
         return res.json()
     }
 
     async getSnippetById(id: string): Promise<Snippet | undefined> {
-        const res = await fetch(`${BASE_URL}/snippets/${id}`, { headers: await authHeaders(this.getToken) })
+        const res = await fetch(`${BASE_URL}/snippets/${id}`, {
+            headers: await authHeaders(this.getToken)
+        })
         if (res.status === 404) return undefined
         if (!res.ok) throw new Error("Error obteniendo snippet")
         return res.json()
@@ -59,7 +95,9 @@ export class RealSnippetOperations implements SnippetOperations {
 
     async getUserFriends(name: string = "", page: number = 0, pageSize: number = 10): Promise<PaginatedUsers> {
         const q = new URLSearchParams({ name, page: String(page), page_size: String(pageSize) })
-        const res = await fetch(`${BASE_URL}/users?${q.toString()}`, { headers: await authHeaders(this.getToken) })
+        const res = await fetch(`${BASE_URL}/users?${q.toString()}`, {
+            headers: await authHeaders(this.getToken)
+        })
         if (!res.ok) throw new Error("Error listando usuarios")
         return res.json()
     }
@@ -75,13 +113,17 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async getFormatRules(): Promise<Rule[]> {
-        const res = await fetch(`${BASE_URL}/rules/format`, { headers: await authHeaders(this.getToken) })
+        const res = await fetch(`${BASE_URL}/rules/format`, {
+            headers: await authHeaders(this.getToken)
+        })
         if (!res.ok) throw new Error("Error obteniendo reglas de formato")
         return res.json()
     }
 
     async getLintingRules(): Promise<Rule[]> {
-        const res = await fetch(`${BASE_URL}/rules/lint`, { headers: await authHeaders(this.getToken) })
+        const res = await fetch(`${BASE_URL}/rules/lint`, {
+            headers: await authHeaders(this.getToken)
+        })
         if (!res.ok) throw new Error("Error obteniendo reglas de lint")
         return res.json()
     }
@@ -98,7 +140,9 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async getTestCases(): Promise<TestCase[]> {
-        const res = await fetch(`${BASE_URL}/tests`, { headers: await authHeaders(this.getToken) })
+        const res = await fetch(`${BASE_URL}/tests`, {
+            headers: await authHeaders(this.getToken)
+        })
         if (!res.ok) throw new Error("Error obteniendo test cases")
         return res.json()
     }
@@ -143,7 +187,9 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async getFileTypes(): Promise<FileType[]> {
-        const res = await fetch(`${BASE_URL}/file-types`, { headers: await authHeaders(this.getToken) })
+        const res = await fetch(`${BASE_URL}/file-types`, {
+            headers: await authHeaders(this.getToken)
+        })
         if (!res.ok) throw new Error("Error obteniendo tipos de archivo")
         return res.json()
     }

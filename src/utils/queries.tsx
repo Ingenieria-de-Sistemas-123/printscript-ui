@@ -23,7 +23,7 @@ export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetN
     const snippetOperations = useSnippetsOperations();
     return useQuery<PaginatedSnippets, Error>(
         ["listSnippets", page, pageSize, snippetName],
-        () => snippetOperations.listSnippetDescriptors(page, pageSize)
+        () => snippetOperations.listSnippetDescriptors(page, pageSize, snippetName)
     );
 };
 
@@ -82,12 +82,13 @@ export const useGetTestCases = () => {
 
 export const usePostTestCase = () => {
     const snippetOperations = useSnippetsOperations();
-    return useMutation<TestCase, Error, Partial<TestCase>>((tc) => snippetOperations.postTestCase(tc));
+    // Forzamos el tipo Partial<TestCase> para que coincida con la firma esperada
+    return useMutation<TestCase, Error, Partial<TestCase>>((tc) => snippetOperations.postTestCase(tc as Partial<TestCase>));
 };
 
 export const useRemoveTestCase = ({ onSuccess }: { onSuccess: () => void }) => {
     const snippetOperations = useSnippetsOperations();
-    return useMutation<string, Error, string>(["removeTestCase"], (id) => snippetOperations.removeTestCase(id), {
+    return useMutation<string, Error, string>((id) => snippetOperations.removeTestCase(id), {
         onSuccess,
     });
 };
@@ -96,7 +97,8 @@ export type TestCaseResult = "success" | "fail";
 
 export const useTestSnippet = () => {
     const snippetOperations = useSnippetsOperations();
-    return useMutation<TestCaseResult, Error, Partial<TestCase>>((tc) => snippetOperations.testSnippet(tc));
+    // Igual que arriba, explicitamos el tipo para evitar ambigüedades
+    return useMutation<TestCaseResult, Error, Partial<TestCase>>((tc) => snippetOperations.testSnippet(tc as Partial<TestCase>));
 };
 
 export const useGetFormatRules = () => {

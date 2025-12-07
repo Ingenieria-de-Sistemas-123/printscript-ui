@@ -60,7 +60,7 @@ export class RealSnippetOperations implements SnippetOperations {
         const headers = await authHeaders(this.getToken, false)
         delete headers["Content-Type"] // Asegurar que no está presente
 
-        const res = await fetch(`${BASE_URL}/api/snippets`, {
+        const res = await fetch(`${BASE_URL}/snippets`, {
             method: "POST",
             headers,
             body: formData

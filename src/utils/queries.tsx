@@ -1,11 +1,18 @@
 import { useMutation, UseMutationResult, useQuery } from "react-query";
 import { CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet } from "./snippet.ts";
 import { PaginatedUsers } from "./users.ts";
-import { TestCase } from "../types/TestCase.ts";
 import { FileType } from "../types/FileType.ts";
 import { RealSnippetOperations } from "./impl/realSnippetOperations.ts";
 import { Rule } from "../types/Rule.ts";
 import { useAuth0 } from "@auth0/auth0-react";
+import {
+    FormatSnippetPayload,
+    SnippetDetails,
+    SnippetListFilters,
+    SnippetTestExecution
+} from "../types/snippetDetails.ts";
+
+export type TestCaseResult = "success" | "fail";
 
 export const useSnippetsOperations = () => {
     const { getAccessTokenSilently } = useAuth0();
@@ -19,19 +26,32 @@ export const useSnippetsOperations = () => {
     return new RealSnippetOperations(getToken);
 };
 
-export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetName?: string) => {
+type PaginatedSnippetDetails = Omit<PaginatedSnippets, "snippets"> & { snippets: SnippetDetails[] };
+
+export const useGetSnippets = (
+    page: number = 0,
+    pageSize: number = 10,
+    filters?: SnippetListFilters
+) => {
     const snippetOperations = useSnippetsOperations();
-    return useQuery<PaginatedSnippets, Error>(
-        ["listSnippets", page, pageSize, snippetName],
-        () => snippetOperations.listSnippetDescriptors(page, pageSize, snippetName)
+    return useQuery<PaginatedSnippetDetails, Error>(
+        ["listSnippets", page, pageSize, filters],
+        async () => {
+            const serializedFilters = filters ? JSON.stringify(filters) : undefined;
+            const response = await snippetOperations.listSnippetDescriptors(page, pageSize, serializedFilters);
+            return response as PaginatedSnippetDetails;
+        }
     );
 };
 
 export const useGetSnippetById = (id: string) => {
     const snippetOperations = useSnippetsOperations();
-    return useQuery<Snippet | undefined, Error>(
+    return useQuery<SnippetDetails | undefined, Error>(
         ["snippet", id],
-        () => snippetOperations.getSnippetById(id),
+        async () => {
+            const snippet = await snippetOperations.getSnippetById(id);
+            return snippet as SnippetDetails | undefined;
+        },
         { enabled: !!id }
     );
 };
@@ -75,32 +95,6 @@ export const useShareSnippet = () => {
     );
 };
 
-export const useGetTestCases = () => {
-    const snippetOperations = useSnippetsOperations();
-    return useQuery<TestCase[] | undefined, Error>(["testCases"], () => snippetOperations.getTestCases(), {});
-};
-
-export const usePostTestCase = () => {
-    const snippetOperations = useSnippetsOperations();
-    // Forzamos el tipo Partial<TestCase> para que coincida con la firma esperada
-    return useMutation<TestCase, Error, Partial<TestCase>>((tc) => snippetOperations.postTestCase(tc as Partial<TestCase>));
-};
-
-export const useRemoveTestCase = ({ onSuccess }: { onSuccess: () => void }) => {
-    const snippetOperations = useSnippetsOperations();
-    return useMutation<string, Error, string>((id) => snippetOperations.removeTestCase(id), {
-        onSuccess,
-    });
-};
-
-export type TestCaseResult = "success" | "fail";
-
-export const useTestSnippet = () => {
-    const snippetOperations = useSnippetsOperations();
-    // Igual que arriba, explicitamos el tipo para evitar ambigüedades
-    return useMutation<TestCaseResult, Error, Partial<TestCase>>((tc) => snippetOperations.testSnippet(tc as Partial<TestCase>));
-};
-
 export const useGetFormatRules = () => {
     const snippetOperations = useSnippetsOperations();
     return useQuery<Rule[], Error>("formatRules", () => snippetOperations.getFormatRules());
@@ -123,7 +117,9 @@ export const useModifyLintingRules = ({ onSuccess }: { onSuccess: () => void }) 
 
 export const useFormatSnippet = () => {
     const snippetOperations = useSnippetsOperations();
-    return useMutation<string, Error, string>((snippetContent) => snippetOperations.formatSnippet(snippetContent));
+    return useMutation<string, Error, FormatSnippetPayload>((snippetContent) =>
+        snippetOperations.formatSnippet(JSON.stringify(snippetContent))
+    );
 };
 
 export const useDeleteSnippet = ({ onSuccess }: { onSuccess: () => void }) => {
@@ -134,4 +130,24 @@ export const useDeleteSnippet = ({ onSuccess }: { onSuccess: () => void }) => {
 export const useGetFileTypes = () => {
     const snippetOperations = useSnippetsOperations();
     return useQuery<FileType[], Error>("fileTypes", () => snippetOperations.getFileTypes());
+};
+
+const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080/api";
+
+export const useExecuteSnippetTest = () => {
+    const { getAccessTokenSilently } = useAuth0();
+    return useMutation<SnippetTestExecution, Error, { snippetId: string; testId: string }>(async ({ snippetId, testId }) => {
+        const token = await getAccessTokenSilently();
+        const res = await fetch(`${BASE_URL}/snippets/${snippetId}/tests/${testId}/execute`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        if (!res.ok) {
+            const body = await res.text();
+            throw new Error(body || "Error ejecutando el test del snippet");
+        }
+        return res.json();
+    });
 };

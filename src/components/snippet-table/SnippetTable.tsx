@@ -11,29 +11,34 @@ import {
   TableCell,
   TableHead,
   TablePagination,
-  TableRow
+  TableRow,
+  TextField
 } from "@mui/material";
 import {AddSnippetModal} from "./AddSnippetModal.tsx";
 import {useRef, useState} from "react";
 import {Add, Search} from "@mui/icons-material";
 import {LoadingSnippetRow, SnippetRow} from "./SnippetRow.tsx";
-import {CreateSnippetWithLang, getFileLanguage, Snippet} from "../../utils/snippet.ts";
+import {CreateSnippetWithLang, getFileLanguage} from "../../utils/snippet.ts";
 import {usePaginationContext} from "../../contexts/paginationContext.tsx";
 import {useSnackbarContext} from "../../contexts/snackbarContext.tsx";
 import {useGetFileTypes} from "../../utils/queries.tsx";
+import {SnippetDetails, SnippetListFilters} from "../../types/snippetDetails.ts";
 
 type SnippetTableProps = {
   handleClickSnippet: (id: string) => void;
-  snippets?: Snippet[];
+  snippets?: SnippetDetails[];
   loading: boolean;
   handleSearchSnippet: (snippetName: string) => void;
+  filters: SnippetListFilters;
+  onChangeFilters: (filters: SnippetListFilters) => void;
 }
 
 export const SnippetTable = (props: SnippetTableProps) => {
-  const {snippets, handleClickSnippet, loading,handleSearchSnippet} = props;
+  const {snippets, handleClickSnippet, loading,handleSearchSnippet, filters, onChangeFilters} = props;
   const [addModalOpened, setAddModalOpened] = useState(false);
   const [popoverMenuOpened, setPopoverMenuOpened] = useState(false)
-  const [snippet, setSnippet] = useState<CreateSnippetWithLang | undefined>()
+  const [snippet, setSnippet] =
+      useState<(CreateSnippetWithLang & { description?: string; version?: string }) | undefined>()
 
   const popoverRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +64,9 @@ export const SnippetTable = (props: SnippetTableProps) => {
         name: splitName[0],
         content: text,
         language: fileType.language,
-        extension: fileType.extension
+        extension: fileType.extension,
+        description: "",
+        version: "1.0"
       })
     }).catch(e => {
       console.error(e)
@@ -73,13 +80,26 @@ export const SnippetTable = (props: SnippetTableProps) => {
     setPopoverMenuOpened(false)
   }
 
+  const handleFiltersChange = (changes: Partial<SnippetListFilters>) => {
+    onChangeFilters({
+      ...filters,
+      ...changes
+    })
+  }
+
+  const relationValue = filters.relation ?? 'all'
+  const validValue = typeof filters.valid === 'boolean' ? (filters.valid ? 'valid' : 'invalid') : 'all'
+  const languageFilter = filters.language ?? 'all'
+  const sortByValue = filters.sortBy ?? 'updated_at'
+  const sortDirValue = filters.sortDir ?? 'desc'
+
   return (
       <>
         <Box display="flex" flexDirection="row" justifyContent="space-between">
           <Box sx={{background: 'white', width: '30%', display: 'flex'}}>
             <InputBase
                 sx={{ml: 1, flex: 1}}
-                placeholder="Search FileType"
+                placeholder="Buscar snippet"
                 inputProps={{'aria-label': 'search'}}
                 onChange={e => handleSearchSnippet(e.target.value)}
             />
@@ -93,12 +113,71 @@ export const SnippetTable = (props: SnippetTableProps) => {
             Add Snippet
           </Button>
         </Box>
+        <Box display="flex" flexWrap="wrap" gap={2} my={2}>
+          <TextField
+              select
+              label="Relación"
+              value={relationValue}
+              onChange={e => handleFiltersChange({relation: e.target.value as 'all' | 'owned' | 'shared'})}
+              sx={{minWidth: 150}}
+          >
+            <MenuItem value="all">Todas</MenuItem>
+            <MenuItem value="owned">Propias</MenuItem>
+            <MenuItem value="shared">Compartidas</MenuItem>
+          </TextField>
+          <TextField
+              select
+              label="Validez"
+              value={validValue}
+              onChange={e => handleFiltersChange({valid: e.target.value === 'all' ? undefined : e.target.value === 'valid'})}
+              sx={{minWidth: 150}}
+          >
+            <MenuItem value="all">Todas</MenuItem>
+            <MenuItem value="valid">Válidas</MenuItem>
+            <MenuItem value="invalid">Inválidas</MenuItem>
+          </TextField>
+          <TextField
+              select
+              label="Lenguaje"
+              value={languageFilter}
+              onChange={e => handleFiltersChange({language: e.target.value === 'all' ? undefined : e.target.value})}
+              sx={{minWidth: 150}}
+          >
+            <MenuItem value="all">Todos</MenuItem>
+            {fileTypes?.map(ft => (
+                <MenuItem key={ft.language} value={ft.language}>{ft.language}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+              select
+              label="Ordenar por"
+              value={sortByValue}
+              onChange={e => handleFiltersChange({sortBy: e.target.value})}
+              sx={{minWidth: 180}}
+          >
+            <MenuItem value="updated_at">Actualización</MenuItem>
+            <MenuItem value="created_at">Creación</MenuItem>
+            <MenuItem value="name">Nombre</MenuItem>
+            <MenuItem value="language">Lenguaje</MenuItem>
+          </TextField>
+          <TextField
+              select
+              label="Dirección"
+              value={sortDirValue}
+              onChange={e => handleFiltersChange({sortDir: e.target.value as 'asc' | 'desc'})}
+              sx={{minWidth: 140}}
+          >
+            <MenuItem value="asc">Ascendente</MenuItem>
+            <MenuItem value="desc">Descendente</MenuItem>
+          </TextField>
+        </Box>
         <Table size="medium" sx={{borderSpacing: "0 10px", borderCollapse: "separate"}}>
           <TableHead>
             <TableRow sx={{fontWeight: 'bold'}}>
               <StyledTableCell sx={{fontWeight: "bold"}}>Name</StyledTableCell>
               <StyledTableCell sx={{fontWeight: "bold"}}>Language</StyledTableCell>
               <StyledTableCell sx={{fontWeight: "bold"}}>Author</StyledTableCell>
+              <StyledTableCell sx={{fontWeight: "bold"}}>Relation</StyledTableCell>
               <StyledTableCell sx={{fontWeight: "bold"}}>Conformance</StyledTableCell>
             </TableRow>
           </TableHead>

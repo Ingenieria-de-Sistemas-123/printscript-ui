@@ -8,15 +8,16 @@ import {useGetSnippets} from "../utils/queries.tsx";
 import {usePaginationContext} from "../contexts/paginationContext.tsx";
 import useDebounce from "../hooks/useDebounce.ts";
 import {usePermissionSync} from "../hooks/usePermissionSync.ts";
+import {SnippetListFilters} from "../types/snippetDetails.ts";
 
 const HomeScreen = () => {
   const { userAccount, loading, error } = usePermissionSync();
   const {id: paramsId} = useParams<{ id: string }>();
   const [searchTerm, setSearchTerm] = useState('');
-  const [snippetName, setSnippetName] = useState('');
+  const [filters, setFilters] = useState<SnippetListFilters>({relation: 'all', sortBy: 'updated_at', sortDir: 'desc'});
   const [snippetId, setSnippetId] = useState<string | null>(null)
-  const {page, page_size, count, handleChangeCount} = usePaginationContext()
-  const {data, isLoading} = useGetSnippets(page, page_size, snippetName)
+  const {page, page_size, count, handleChangeCount, handleGoToPage} = usePaginationContext()
+  const {data, isLoading} = useGetSnippets(page, page_size, filters)
 
   console.log("[HomeScreen] userAccount:", userAccount, "loading:", loading, "error:", error);
 
@@ -38,20 +39,27 @@ const HomeScreen = () => {
 
   // DeBounce Function
   useDebounce(() => {
-        setSnippetName(
-            searchTerm
-        );
-      }, [searchTerm], 800
+        setFilters(prev => ({
+          ...prev,
+          name: searchTerm || undefined
+        }));
+        handleGoToPage(0);
+      }, [searchTerm, handleGoToPage], 800
   );
 
   const handleSearchSnippet = (snippetName: string) => {
     setSearchTerm(snippetName);
   };
 
+  const handleFiltersChange = (next: SnippetListFilters) => {
+    setFilters(next);
+    handleGoToPage(0);
+  }
+
   return (
       <>
         <SnippetTable loading={isLoading} handleClickSnippet={setSnippetId} snippets={data?.snippets}
-                      handleSearchSnippet={handleSearchSnippet}/>
+                      handleSearchSnippet={handleSearchSnippet} filters={filters} onChangeFilters={handleFiltersChange}/>
         <Drawer open={!!snippetId} anchor={"right"} onClose={handleCloseModal}>
           {snippetId && <SnippetDetail handleCloseModal={handleCloseModal} id={snippetId}/>}
         </Drawer>
@@ -60,4 +68,3 @@ const HomeScreen = () => {
 }
 
 export default withNavbar(HomeScreen);
-

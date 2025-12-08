@@ -213,24 +213,24 @@ export class RealSnippetOperations implements SnippetOperations {
         return res.json()
     }
 
-    async formatSnippet(snippet: string): Promise<string> {
-        let payload: FormatSnippetPayload
-        try {
-            payload = JSON.parse(snippet)
-        } catch {
-            throw new Error("Formato inválido para el request de formateo.")
-        }
+    async formatSnippet(payload: FormatSnippetPayload): Promise<string> {
         if (!payload.language || !payload.version) {
-            throw new Error("Lenguaje y versión son obligatorios para formatear un snippet.")
+            throw new Error("Lenguaje y versión son obligatorios para formatear un snippet.");
         }
+
         const res = await fetch(`${BASE_URL}/snippets/format`, {
             method: "POST",
             headers: await authHeaders(this.getToken),
-            body: JSON.stringify(payload)
-        })
-        if (!res.ok) throw new Error("Error formateando snippet")
-        const data = await res.json()
-        return data.formatted ?? data.content
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(`Error formateando snippet: ${res.status} ${text}`);
+        }
+
+        const data = await res.json();
+        return data.formatted ?? data.content ?? payload.content;
     }
 
     async getTestCases(): Promise<TestCase[]> {
@@ -306,5 +306,27 @@ export class RealSnippetOperations implements SnippetOperations {
         })
         if (!res.ok) throw new Error("Error modificando reglas de lint")
         return res.json()
+    }
+
+    async formatAllSnippets(): Promise<void> {
+        const res = await fetch(`${BASE_URL}/admin/snippets/format`, {
+            method: "POST",
+            headers: await authHeaders(this.getToken),
+        });
+        if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(`Error lanzando formateo masivo: ${res.status} ${text}`);
+        }
+    }
+
+    async lintAllSnippets(): Promise<void> {
+        const res = await fetch(`${BASE_URL}/admin/snippets/lint`, {
+            method: "POST",
+            headers: await authHeaders(this.getToken),
+        });
+        if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(`Error lanzando lint masivo: ${res.status} ${text}`);
+        }
     }
 }

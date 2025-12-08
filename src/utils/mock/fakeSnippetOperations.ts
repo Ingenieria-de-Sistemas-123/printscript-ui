@@ -7,6 +7,7 @@ import {TestCase} from "../../types/TestCase.ts";
 import {TestCaseResult} from "../queries.tsx";
 import {FileType} from "../../types/FileType.ts";
 import {Rule} from "../../types/Rule.ts";
+import {FormatSnippetPayload} from "../../types/snippetDetails.ts";
 
 const DELAY: number = 1000
 
@@ -73,10 +74,13 @@ export class FakeSnippetOperations implements SnippetOperations {
     })
   }
 
-  formatSnippet(snippetContent: string): Promise<string> {
+  formatSnippet(payload: FormatSnippetPayload): Promise<string> {
     return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.formatSnippet(snippetContent)), DELAY)
-    })
+      setTimeout(
+          () => resolve(this.fakeStore.formatSnippet(payload.content)),
+          DELAY
+      );
+    });
   }
 
   getTestCases(): Promise<TestCase[]> {
@@ -124,5 +128,17 @@ export class FakeSnippetOperations implements SnippetOperations {
     return new Promise(resolve => {
       setTimeout(() => resolve(this.fakeStore.modifyLintingRule(newRules)), DELAY)
     })
+  }
+
+  formatAllSnippets(): Promise<void> {
+    return new Promise(resolve => {
+      setTimeout(() => resolve(), DELAY);
+    });
+  }
+
+  lintAllSnippets(): Promise<void> {
+    return new Promise(resolve => {
+      setTimeout(() => resolve(), DELAY);
+    });
   }
 }

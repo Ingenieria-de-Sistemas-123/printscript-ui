@@ -4,6 +4,7 @@ import {TestCase} from "../types/TestCase.ts";
 import {TestCaseResult} from "./queries.tsx";
 import {FileType} from "../types/FileType.ts";
 import {Rule} from "../types/Rule.ts";
+import {FormatSnippetPayload} from "../types/snippetDetails.ts";
 
 export interface SnippetOperations {
   listSnippetDescriptors(page: number,pageSize: number,sippetName?: string): Promise<PaginatedSnippets>
@@ -24,7 +25,7 @@ export interface SnippetOperations {
 
   getTestCases(): Promise<TestCase[]>
 
-  formatSnippet(snippet: string): Promise<string>
+  formatSnippet(payload: FormatSnippetPayload): Promise<string>;
 
   postTestCase(testCase: Partial<TestCase>): Promise<TestCase>
 
@@ -39,4 +40,8 @@ export interface SnippetOperations {
   modifyFormatRule(newRules: Rule[]): Promise<Rule[]>
 
   modifyLintingRule(newRules: Rule[]): Promise<Rule[]>
+
+  formatAllSnippets(): Promise<void>;
+
+  lintAllSnippets(): Promise<void>;
 }

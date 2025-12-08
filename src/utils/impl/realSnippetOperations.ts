@@ -6,11 +6,7 @@ import {TestCase} from "../../types/TestCase"
 import {TestCaseResult} from "../queries"
 import {FileType} from "../../types/FileType"
 import {Rule} from "../../types/Rule"
-import {
-    FormatSnippetPayload,
-    SnippetDetails,
-    SnippetListFilters
-} from "../../types/snippetDetails";
+import {FormatSnippetPayload, SnippetDetails, SnippetListFilters} from "../../types/snippetDetails";
 
 type TokenGetter = () => Promise<string | undefined>
 const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080/api"
@@ -68,8 +64,7 @@ const mapPaginatedResponse = (data: any): PaginatedSnippets => {
 const parseFilters = (raw?: string): SnippetListFilters | undefined => {
     if (!raw) return undefined
     try {
-        const parsed = JSON.parse(raw)
-        return parsed
+        return JSON.parse(raw)
     } catch {
         return { name: raw }
     }

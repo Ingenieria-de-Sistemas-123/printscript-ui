@@ -1,4 +1,3 @@
-import {ComponentType} from "react";
 import {Navbar} from "./Navbar.tsx";
 import {Box} from "@mui/material";
 

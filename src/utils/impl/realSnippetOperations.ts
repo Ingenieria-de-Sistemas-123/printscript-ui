@@ -1,7 +1,7 @@
 // src/utils/impl/realSnippetOperations.ts
 import {SnippetOperations} from '../snippetOperations'
 import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snippet'
-import {PaginatedUsers} from "../users"
+import {Friends} from "../users"
 import {TestCase} from "../../types/TestCase"
 import {TestCaseResult} from "../queries"
 import {FileType} from "../../types/FileType"
@@ -71,10 +71,11 @@ const parseFilters = (raw?: string): SnippetListFilters | undefined => {
 }
 
 export class RealSnippetOperations implements SnippetOperations {
-    constructor(private getToken?: TokenGetter) {}
+    constructor(private getToken?: TokenGetter) {
+    }
 
     async listSnippetDescriptors(page: number, pageSize: number, snippetName?: string): Promise<PaginatedSnippets> {
-        const q = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+        const q = new URLSearchParams({page: String(page), page_size: String(pageSize)})
         const filters = parseFilters(snippetName)
         if (filters?.name) q.set("name", filters.name)
         if (filters?.language) q.set("language", filters.language)
@@ -96,7 +97,7 @@ export class RealSnippetOperations implements SnippetOperations {
         if (!payload.description || !payload.version) {
             throw new Error("Descripción y versión son obligatorias para crear un snippet.")
         }
-        const fileBlob = new Blob([createSnippet.content], { type: 'text/plain' })
+        const fileBlob = new Blob([createSnippet.content], {type: 'text/plain'})
         const fileName = `${createSnippet.name}.${createSnippet.extension}`
         const formData = new FormData()
         formData.append('file', fileBlob, fileName)
@@ -152,7 +153,7 @@ export class RealSnippetOperations implements SnippetOperations {
             throw new Error("Nombre, lenguaje y versión son obligatorios para actualizar un snippet.")
         }
 
-        const fileBlob = new Blob([updateSnippet.content], { type: 'text/plain' })
+        const fileBlob = new Blob([updateSnippet.content], {type: 'text/plain'})
         const formData = new FormData()
         const extension = payload.extension ?? 'prs'
         formData.append('file', fileBlob, `${payload.name}.${extension}`)
@@ -163,7 +164,7 @@ export class RealSnippetOperations implements SnippetOperations {
             language: payload.language,
             version: payload.version
         }
-        formData.append('request', new Blob([JSON.stringify(requestPayload)], { type: 'application/json' }))
+        formData.append('request', new Blob([JSON.stringify(requestPayload)], {type: 'application/json'}))
 
         const headers = await authHeaders(this.getToken, false)
         delete headers["Content-Type"]
@@ -178,13 +179,13 @@ export class RealSnippetOperations implements SnippetOperations {
         return mapSnippetResponse(data)
     }
 
-    async getUserFriends(name: string = "", page: number = 0, pageSize: number = 10): Promise<PaginatedUsers> {
-        const q = new URLSearchParams({ name, page: String(page), page_size: String(pageSize) })
-        const res = await fetch(`${BASE_URL}/users?${q.toString()}`, {
+    async getUserFriends(): Promise<Friends[]> {
+        const res = await fetch(`${BASE_URL}/snippets/users`, {
+            method: "GET",
             headers: await authHeaders(this.getToken)
-        })
-        if (!res.ok) throw new Error("Error listando usuarios")
-        return res.json()
+        });
+        if (!res.ok) throw new Error("Error obteniendo usuarios");
+        return res.json();
     }
 
     async shareSnippet(snippetId: string, userId: string): Promise<Snippet> {

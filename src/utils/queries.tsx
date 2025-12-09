@@ -1,6 +1,5 @@
 import { useMutation, UseMutationResult, useQuery } from "react-query";
 import { CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet } from "./snippet.ts";
-import { PaginatedUsers } from "./users.ts";
 import { FileType } from "../types/FileType.ts";
 import { RealSnippetOperations } from "./impl/realSnippetOperations.ts";
 import { Rule } from "../types/Rule.ts";
@@ -11,6 +10,7 @@ import {
     SnippetListFilters,
     SnippetTestExecution
 } from "../types/snippetDetails.ts";
+import {Friends} from "./users.ts";
 
 export type TestCaseResult = "success" | "fail";
 
@@ -80,11 +80,11 @@ export const useUpdateSnippetById = ({
     );
 };
 
-export const useGetUsers = (name: string = "", page: number = 0, pageSize: number = 10) => {
+export const useGetUsers = () => {
     const snippetOperations = useSnippetsOperations();
-    return useQuery<PaginatedUsers, Error>(
-        ["users", name, page, pageSize],
-        () => snippetOperations.getUserFriends(name, page, pageSize)
+    return useQuery<Friends[], Error>(
+        ["users"],
+        () => snippetOperations.getUserFriends()
     );
 };
 

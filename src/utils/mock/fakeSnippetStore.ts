@@ -1,6 +1,6 @@
 import {ComplianceEnum, CreateSnippet, Snippet, UpdateSnippet} from '../snippet'
 import {v4 as uuid} from 'uuid'
-import {PaginatedUsers} from "../users.ts";
+import {Friends} from "../users.ts";
 import {TestCase} from "../../types/TestCase.ts";
 import {TestCaseResult} from "../queries.tsx";
 import {FileType} from "../../types/FileType.ts";
@@ -36,33 +36,33 @@ const INITIAL_SNIPPETS: Snippet[] = [
   }
 ]
 
-const paginatedUsers: PaginatedUsers = {
-  count: 5,
-  page: 1,
-  page_size: 10,
-  users: [
-    {
-      name: "Chona",
-      id: "1"
-    },
-    {
-      name: "Fede",
-      id: "2"
-    },
-    {
-      name: "Mateo",
-      id: "3"
-    },
-    {
-      name: "Tomi",
-      id: "4"
-    },
-    {
-      name: "Berrets",
-      id: "5"
-    }
-  ]
-}
+export const friendsMock = [
+  {
+    id: "1",
+    name: "Chona",
+    email: "chona@example.com",
+  },
+  {
+    id: "2",
+    name: "Fede",
+    email: "fede@example.com",
+  },
+  {
+    id: "3",
+    name: "Mateo",
+    email: "mateo@example.com",
+  },
+  {
+    id: "4",
+    name: "Tomi",
+    email: "tomi@example.com",
+  },
+  {
+    id: "5",
+    name: "Javi",
+    email: "javi@example.com",
+  }
+] satisfies Friends[];
 
 const INITIAL_FORMATTING_RULES: Rule[] = [
   {
@@ -211,13 +211,8 @@ export class FakeSnippetStore {
     return newSnippet
   }
 
-  getUserFriends(name: string, page: number, pageSize: number) {
-    return {
-      ...paginatedUsers,
-      page: page,
-      pageSize: pageSize,
-      users: paginatedUsers.users.filter(x => x.name.includes(name))
-    };
+  getUserFriends() {
+    return friendsMock;
   }
 
   getFormatRules(): Rule[] {

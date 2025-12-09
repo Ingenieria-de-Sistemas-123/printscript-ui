@@ -2,7 +2,8 @@ import {Autocomplete, Box, Button, Divider, TextField, Typography} from "@mui/ma
 import {ModalWrapper} from "../common/ModalWrapper.tsx";
 import {useGetUsers} from "../../utils/queries.tsx";
 import {useEffect, useState} from "react";
-import {User} from "../../utils/users.ts";
+import {Friends} from "../../utils/users.ts";
+import useDebounce from "../../hooks/useDebounce";
 
 type ShareSnippetModalProps = {
   open: boolean
@@ -13,19 +14,31 @@ type ShareSnippetModalProps = {
 export const ShareSnippetModal = (props: ShareSnippetModalProps) => {
   const {open, onClose, onShare, loading} = props
   const [name, setName] = useState("")
-  const [debouncedName, setDebouncedName] = useState("")
-  const {data, isLoading} = useGetUsers(debouncedName, 1, 5)
-  const [selectedUser, setSelectedUser] = useState<User | undefined>()
+  const {data: users = [], isLoading} = useGetUsers()
+  const [selectedUser, setSelectedUser] = useState<Friends | undefined>()
+  const [options, setOptions] = useState<Friends[]>([])
 
+  // debounce: filtrar en frontend tras 300ms desde la última tecla
+  useDebounce(() => {
+    if (!name) {
+      setOptions(users)
+      return
+    }
+    const q = name.toLowerCase()
+    setOptions(
+      users.filter((u) =>
+        (u.name ?? "").toLowerCase().includes(q) || (u.email ?? "").toLowerCase().includes(q)
+      )
+    )
+  }, [name, users], 300)
+
+  // sincronizar opciones inicialmente cuando cambian los usuarios traídos
   useEffect(() => {
-    const getData = setTimeout(() => {
-      setDebouncedName(name)
-    }, 3000)
-    return () => clearTimeout(getData)
-  }, [name])
+    setOptions(users)
+  }, [users])
 
-  function handleSelectUser(newValue: User | null) {
-    newValue && setSelectedUser(newValue)
+  function handleSelectUser(newValue: Friends | null) {
+    newValue ? setSelectedUser(newValue) : setSelectedUser(undefined)
   }
 
   return (
@@ -35,15 +48,13 @@ export const ShareSnippetModal = (props: ShareSnippetModalProps) => {
         <Box mt={2}>
           <Autocomplete
               renderInput={(params) => <TextField {...params} label="Type the user's name"/>}
-              options={data?.users ?? []}
-              isOptionEqualToValue={(option, value) =>
-                  option.id === value.id
-              }
+              options={options}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
               getOptionLabel={(option) => option.name}
               loading={isLoading}
               value={selectedUser}
-              onInputChange={(_: unknown, newValue: string | null) => newValue && setName(newValue)}
-              onChange={(_: unknown, newValue: User | null) => handleSelectUser(newValue)}
+              onInputChange={(_: unknown, newValue: string | null) => setName(newValue ?? "")}
+              onChange={(_: unknown, newValue: Friends | null) => handleSelectUser(newValue)}
           />
           <Box mt={4} display={"flex"} width={"100%"} justifyContent={"flex-end"}>
             <Button onClick={onClose} variant={"outlined"}>Cancel</Button>

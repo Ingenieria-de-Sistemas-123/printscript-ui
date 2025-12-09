@@ -1,4 +1,3 @@
-// src/utils/impl/realSnippetOperations.ts
 import {SnippetOperations} from '../snippetOperations'
 import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snippet'
 import {PaginatedUsers} from "../users"
@@ -6,7 +5,13 @@ import {TestCase} from "../../types/TestCase"
 import {TestCaseResult} from "../queries"
 import {FileType} from "../../types/FileType"
 import {Rule} from "../../types/Rule"
-import {FormatSnippetPayload, SnippetDetails, SnippetListFilters} from "../../types/snippetDetails";
+import {
+    FormatSnippetPayload,
+    SnippetDetails,
+    SnippetLintError,
+    SnippetListFilters,
+    SnippetTest
+} from "../../types/snippetDetails";
 
 type TokenGetter = () => Promise<string | undefined>
 const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080/api"
@@ -34,23 +39,55 @@ const mapCompliance = (status?: string | null): Snippet["compliance"] => {
     }
 }
 
-const mapSnippetResponse = (payload: any): SnippetDetails => ({
+type RawSnippetResponse = {
+    id: string;
+    name: string;
+    description?: string;
+    content?: string;
+    language: string;
+    version?: string;
+    extension?: string;
+    complianceStatus?: string | null;
+    compliance?: string | null;
+    complianceMessage?: string | null;
+    author?: string;
+    ownerName?: string;
+    relation?: string;
+    permission?: string;
+    lintErrors?: SnippetLintError[];
+    tests?: SnippetTest[];
+};
+
+type RawPaginatedResponse = {
+    items?: RawSnippetResponse[];
+    snippets?: RawSnippetResponse[];
+    page?: number;
+    page_number?: number;
+    pageSize?: number;
+    page_size?: number;
+    size?: number;
+    totalElements?: number;
+    total?: number;
+    count?: number;
+};
+
+const mapSnippetResponse = (payload: RawSnippetResponse): SnippetDetails => ({
     id: payload.id,
     name: payload.name,
     description: payload.description,
-    content: payload.content,
+    content: payload.content ?? "",
     language: payload.language,
     version: payload.version,
-    extension: payload.extension,
+    extension: payload.extension ?? "",
     compliance: mapCompliance(payload.complianceStatus ?? payload.compliance),
     complianceMessage: payload.complianceMessage,
     author: payload.ownerName ?? payload.author ?? "Unknown",
-    relation: payload.relation ?? payload.permission ?? undefined,
+    relation: (payload.relation as SnippetDetails["relation"]) ?? (payload.permission as SnippetDetails["relation"]) ?? undefined,
     lintErrors: payload.lintErrors ?? [],
     tests: payload.tests ?? [],
 })
 
-const mapPaginatedResponse = (data: any): PaginatedSnippets => {
+const mapPaginatedResponse = (data: RawPaginatedResponse): PaginatedSnippets => {
     const items = data.items ?? data.snippets ?? []
     const snippets: Snippet[] = items.map(mapSnippetResponse)
     return {
@@ -91,6 +128,19 @@ export class RealSnippetOperations implements SnippetOperations {
         return mapPaginatedResponse(data)
     }
 
+    private static extractErrorMessage(defaultMessage: string, rawText?: string): string {
+        if (!rawText) return defaultMessage
+        const trimmed = rawText.trim()
+        try {
+            const parsed = JSON.parse(trimmed)
+            if (parsed?.message) return parsed.message
+            if (parsed?.error) return parsed.error
+        } catch {
+            // ignore json parse errors and fall back to trimmed text
+        }
+        return trimmed || defaultMessage
+    }
+
     async createSnippet(createSnippet: CreateSnippet): Promise<Snippet> {
         const payload = createSnippet as CreateSnippet & { description?: string; version?: string }
         const fileBlob = new Blob([createSnippet.content], { type: 'text/plain' })
@@ -120,7 +170,8 @@ export class RealSnippetOperations implements SnippetOperations {
 
         if (!res.ok) {
             const errorText = await res.text()
-            throw new Error(`Error creando snippet: ${res.status} - ${errorText}`)
+            const message = RealSnippetOperations.extractErrorMessage("Error creando snippet", errorText)
+            throw new Error(message)
         }
 
         const data = await res.json()
@@ -169,7 +220,8 @@ export class RealSnippetOperations implements SnippetOperations {
         })
         if (!res.ok) {
             const errorText = await res.text()
-            throw new Error(errorText || "Error actualizando snippet")
+            const message = RealSnippetOperations.extractErrorMessage("Error actualizando snippet", errorText)
+            throw new Error(message)
         }
         const data = await res.json()
         return mapSnippetResponse(data)

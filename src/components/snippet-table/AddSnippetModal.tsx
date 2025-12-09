@@ -3,6 +3,10 @@ import {
     Button,
     capitalize,
     CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     Input,
     InputLabel,
     MenuItem,
@@ -32,6 +36,7 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
     const [language, setLanguage] = useState(defaultSnippet?.language ?? "printscript");
     const [code, setCode] = useState(defaultSnippet?.content ?? "");
     const [snippetName, setSnippetName] = useState(defaultSnippet?.name ?? "")
+    const [creationError, setCreationError] = useState<string | null>(null)
     const {mutateAsync: createSnippet, isLoading: loadingSnippet} = useCreateSnippet({
         onSuccess: () => queryClient.invalidateQueries('listSnippets')
     })
@@ -50,7 +55,8 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
             onClose();
         } catch (error) {
             const message = error instanceof Error ? error.message : "Error creando snippet"
-            createSnackbar('error', message)
+            setCreationError(message)
+            createSnackbar('error', "Snippet inválido. Revisa el detalle para corregirlo.")
         }
     }
 
@@ -132,6 +138,17 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
                     }}
                 />
             </Box>
+            <Dialog open={!!creationError} onClose={() => setCreationError(null)}>
+                <DialogTitle>Snippet inválido</DialogTitle>
+                <DialogContent dividers>
+                    <Typography variant="body2" whiteSpace="pre-wrap">
+                        {creationError}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setCreationError(null)}>Entendido</Button>
+                </DialogActions>
+            </Dialog>
         </ModalWrapper>
     )
 }

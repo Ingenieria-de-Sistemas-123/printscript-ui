@@ -4,7 +4,7 @@ import {highlight, languages} from "prismjs";
 import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
 import "prismjs/themes/prism-okaidia.css";
-import {Alert, Box, CircularProgress, IconButton, Tooltip, Typography} from "@mui/material";
+import {Alert, Box, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Tooltip, Typography, Button} from "@mui/material";
 import CloseIcon from '@mui/icons-material/Close';
 import {
     useUpdateSnippetById
@@ -66,6 +66,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
     const [shareModalOppened, setShareModalOppened] = useState(false)
     const [deleteConfirmationModalOpen, setDeleteConfirmationModalOpen] = useState(false)
     const [testModalOpened, setTestModalOpened] = useState(false);
+    const [updateError, setUpdateError] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const {createSnackbar} = useSnackbarContext()
 
@@ -74,8 +75,14 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
     const {mutate: shareSnippet, isLoading: loadingShare} = useShareSnippet()
     const {mutate: formatSnippet, isLoading: isFormatLoading, data: formatSnippetData} = useFormatSnippet()
     const {mutate: updateSnippet, isLoading: isUpdateSnippetLoading} = useUpdateSnippetById({
-        onSuccess: () => queryClient.invalidateQueries(['snippet', id]),
-        onError: (error) => createSnackbar('error', error.message)
+        onSuccess: () => {
+            queryClient.invalidateQueries(['snippet', id])
+            setUpdateError(null)
+        },
+        onError: (error) => {
+            setUpdateError(error.message)
+            createSnackbar('error', "Snippet inválido. Revisa el detalle para corregirlo.")
+        }
     })
 
     useEffect(() => {
@@ -287,6 +294,17 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                                onShare={handleShareSnippet}/>
             <TestSnippetModal open={testModalOpened} onClose={() => setTestModalOpened(false)}/>
             <DeleteConfirmationModal open={deleteConfirmationModalOpen} onClose={() => setDeleteConfirmationModalOpen(false)} id={snippet?.id ?? ""} setCloseDetails={handleCloseModal} />
+            <Dialog open={!!updateError} onClose={() => setUpdateError(null)}>
+                <DialogTitle>Error actualizando snippet</DialogTitle>
+                <DialogContent dividers>
+                    <Typography variant="body2" whiteSpace="pre-wrap">
+                        {updateError}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setUpdateError(null)}>Entendido</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

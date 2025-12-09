@@ -1,4 +1,3 @@
-// cypress.config.ts
 import { defineConfig } from "cypress";
 import dotenv from "dotenv";
 
@@ -18,7 +17,6 @@ export default defineConfig({
             console.log("Cypress AUTH0_DOMAIN:", config.env.AUTH0_DOMAIN);
             return config;
         },
-        experimentalSessionAndOrigin: true,
         baseUrl: "http://localhost:3000",
     },
 });

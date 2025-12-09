@@ -8,71 +8,70 @@ import {TestCaseResult} from "../queries.tsx";
 import {FileType} from "../../types/FileType.ts";
 import {Rule} from "../../types/Rule.ts";
 import {FormatSnippetPayload} from "../../types/snippetDetails.ts";
-
 const DELAY: number = 1000
 
 export class FakeSnippetOperations implements SnippetOperations {
-  private readonly fakeStore = new FakeSnippetStore()
+    private readonly fakeStore = new FakeSnippetStore()
 
-  constructor() {
-    autoBind(this)
-  }
-
-  createSnippet(createSnippet: CreateSnippet): Promise<Snippet> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.createSnippet(createSnippet)), DELAY)
-    })
-  }
-
-  getSnippetById(id: string): Promise<Snippet | undefined> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.getSnippetById(id)), DELAY)
-    })
-  }
-
-  listSnippetDescriptors(page: number,pageSize: number): Promise<PaginatedSnippets> {
-    const response: PaginatedSnippets = {
-      page: page,
-      page_size: pageSize,
-      count: 20,
-      snippets: page == 0 ? this.fakeStore.listSnippetDescriptors().splice(0,pageSize) : this.fakeStore.listSnippetDescriptors().splice(1,2)
+    constructor() {
+        autoBind(this)
     }
 
-    return new Promise(resolve => {
-      setTimeout(() => resolve(response), DELAY)
-    })
-  }
+    createSnippet(createSnippet: CreateSnippet): Promise<Snippet> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.createSnippet(createSnippet)), DELAY)
+        })
+    }
 
-  updateSnippetById(id: string, updateSnippet: UpdateSnippet): Promise<Snippet> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.updateSnippet(id, updateSnippet)), DELAY)
-    })
-  }
+    getSnippetById(id: string): Promise<Snippet | undefined> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.getSnippetById(id)), DELAY)
+        })
+    }
 
-  getUserFriends(name: string = "", page: number = 1, pageSize: number = 10): Promise<PaginatedUsers> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.getUserFriends(name,page,pageSize)), DELAY)
-    })
-  }
+    listSnippetDescriptors(page: number,pageSize: number): Promise<PaginatedSnippets> {
+        const response: PaginatedSnippets = {
+            page: page,
+            page_size: pageSize,
+            count: 20,
+            snippets: page == 0 ? this.fakeStore.listSnippetDescriptors().splice(0,pageSize) : this.fakeStore.listSnippetDescriptors().splice(1,2)
+        }
 
-  shareSnippet(snippetId: string): Promise<Snippet> {
-    return new Promise(resolve => {
-      // @ts-expect-error, it will always find it in the fake store
-      setTimeout(() => resolve(this.fakeStore.getSnippetById(snippetId)), DELAY)
-    })
-  }
+        return new Promise(resolve => {
+            setTimeout(() => resolve(response), DELAY)
+        })
+    }
 
-  getFormatRules(): Promise<Rule[]> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.getFormatRules()), DELAY)
-    })
-  }
+    updateSnippetById(id: string, updateSnippet: UpdateSnippet): Promise<Snippet> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.updateSnippet(id, updateSnippet)), DELAY)
+        })
+    }
 
-  getLintingRules(): Promise<Rule[]> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.getLintingRules()), DELAY)
-    })
-  }
+    getUserFriends(name: string = "", page: number = 1, pageSize: number = 10): Promise<PaginatedUsers> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.getUserFriends(name,page,pageSize)), DELAY)
+        })
+    }
+
+    shareSnippet(snippetId: string): Promise<Snippet> {
+        return new Promise(resolve => {
+            // @ts-expect-error, it will always find it in the fake store
+            setTimeout(() => resolve(this.fakeStore.getSnippetById(snippetId)), DELAY)
+        })
+    }
+
+    getFormatRules(): Promise<Rule[]> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.getFormatRules()), DELAY)
+        })
+    }
+
+    getLintingRules(): Promise<Rule[]> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.getLintingRules()), DELAY)
+        })
+    }
 
   formatSnippet(payload: FormatSnippetPayload): Promise<string> {
     return new Promise(resolve => {
@@ -83,46 +82,47 @@ export class FakeSnippetOperations implements SnippetOperations {
     });
   }
 
-  getTestCases(): Promise<TestCase[]> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.getTestCases()), DELAY)
-    })
-  }
+    getTestCases(): Promise<TestCase[]> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.getTestCases()), DELAY)
+        })
+    }
 
-  postTestCase(testCase: Partial<TestCase>): Promise<TestCase> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.postTestCase(testCase)), DELAY)
-    })
-  }
-  removeTestCase(id: string): Promise<string> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.removeTestCase(id)), DELAY)
-    })
-  }
+    postTestCase(testCase: TestCase): Promise<TestCase> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.postTestCase(testCase)), DELAY)
+        })
+    }
 
-  testSnippet(testCase: Partial<TestCase>): Promise<TestCaseResult> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.testSnippet(testCase)), DELAY)
-    })
-  }
+    removeTestCase(id: string): Promise<string> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.removeTestCase(id)), DELAY)
+        })
+    }
 
-  deleteSnippet(id: string): Promise<string> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.deleteSnippet(id)), DELAY)
-    })
-  }
+    testSnippet(): Promise<TestCaseResult> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.testSnippet()), DELAY)
+        })
+    }
 
-  getFileTypes(): Promise<FileType[]> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.getFileTypes()), DELAY)
-    })
-  }
+    deleteSnippet(id: string): Promise<string> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.deleteSnippet(id)), DELAY)
+        })
+    }
 
-  modifyFormatRule(newRules: Rule[]): Promise<Rule[]> {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.fakeStore.modifyFormattingRule(newRules)), DELAY)
-    })
-  }
+    getFileTypes(): Promise<FileType[]> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.getFileTypes()), DELAY)
+        })
+    }
+
+    modifyFormatRule(newRules: Rule[]): Promise<Rule[]> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(this.fakeStore.modifyFormattingRule(newRules)), DELAY)
+        })
+    }
 
   modifyLintingRule(newRules: Rule[]): Promise<Rule[]> {
     return new Promise(resolve => {

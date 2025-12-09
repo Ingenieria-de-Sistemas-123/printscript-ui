@@ -1,4 +1,3 @@
-// src/utils/impl/realSnippetOperations.ts
 import {SnippetOperations} from '../snippetOperations'
 import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snippet'
 import {PaginatedUsers} from "../users"
@@ -6,7 +5,13 @@ import {TestCase} from "../../types/TestCase"
 import {TestCaseResult} from "../queries"
 import {FileType} from "../../types/FileType"
 import {Rule} from "../../types/Rule"
-import {FormatSnippetPayload, SnippetDetails, SnippetListFilters} from "../../types/snippetDetails";
+import {
+    FormatSnippetPayload,
+    SnippetDetails,
+    SnippetLintError,
+    SnippetListFilters,
+    SnippetTest
+} from "../../types/snippetDetails";
 
 type TokenGetter = () => Promise<string | undefined>
 const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080/api"
@@ -34,23 +39,55 @@ const mapCompliance = (status?: string | null): Snippet["compliance"] => {
     }
 }
 
-const mapSnippetResponse = (payload: any): SnippetDetails => ({
+type RawSnippetResponse = {
+    id: string;
+    name: string;
+    description?: string;
+    content?: string;
+    language: string;
+    version?: string;
+    extension?: string;
+    complianceStatus?: string | null;
+    compliance?: string | null;
+    complianceMessage?: string | null;
+    author?: string;
+    ownerName?: string;
+    relation?: string;
+    permission?: string;
+    lintErrors?: SnippetLintError[];
+    tests?: SnippetTest[];
+};
+
+type RawPaginatedResponse = {
+    items?: RawSnippetResponse[];
+    snippets?: RawSnippetResponse[];
+    page?: number;
+    page_number?: number;
+    pageSize?: number;
+    page_size?: number;
+    size?: number;
+    totalElements?: number;
+    total?: number;
+    count?: number;
+};
+
+const mapSnippetResponse = (payload: RawSnippetResponse): SnippetDetails => ({
     id: payload.id,
     name: payload.name,
     description: payload.description,
-    content: payload.content,
+    content: payload.content ?? "",
     language: payload.language,
     version: payload.version,
-    extension: payload.extension,
+    extension: payload.extension ?? "",
     compliance: mapCompliance(payload.complianceStatus ?? payload.compliance),
     complianceMessage: payload.complianceMessage,
     author: payload.ownerName ?? payload.author ?? "Unknown",
-    relation: payload.relation ?? payload.permission ?? undefined,
+    relation: (payload.relation as SnippetDetails["relation"]) ?? (payload.permission as SnippetDetails["relation"]) ?? undefined,
     lintErrors: payload.lintErrors ?? [],
     tests: payload.tests ?? [],
 })
 
-const mapPaginatedResponse = (data: any): PaginatedSnippets => {
+const mapPaginatedResponse = (data: RawPaginatedResponse): PaginatedSnippets => {
     const items = data.items ?? data.snippets ?? []
     const snippets: Snippet[] = items.map(mapSnippetResponse)
     return {
@@ -91,22 +128,32 @@ export class RealSnippetOperations implements SnippetOperations {
         return mapPaginatedResponse(data)
     }
 
+    private static extractErrorMessage(defaultMessage: string, rawText?: string): string {
+        if (!rawText) return defaultMessage
+        const trimmed = rawText.trim()
+        try {
+            const parsed = JSON.parse(trimmed)
+            if (parsed?.message) return parsed.message
+            if (parsed?.error) return parsed.error
+        } catch {
+            // ignore json parse errors and fall back to trimmed text
+        }
+        return trimmed || defaultMessage
+    }
+
     async createSnippet(createSnippet: CreateSnippet): Promise<Snippet> {
         const payload = createSnippet as CreateSnippet & { description?: string; version?: string }
-        if (!payload.description || !payload.version) {
-            throw new Error("Descripción y versión son obligatorias para crear un snippet.")
-        }
         const fileBlob = new Blob([createSnippet.content], { type: 'text/plain' })
         const fileName = `${createSnippet.name}.${createSnippet.extension}`
         const formData = new FormData()
         formData.append('file', fileBlob, fileName)
 
-        const requestData = {
+        const requestData: Record<string, string> = {
             name: createSnippet.name,
-            description: payload.description,
             language: createSnippet.language,
-            version: payload.version
         }
+        if (payload.description) requestData.description = payload.description
+        if (payload.version) requestData.version = payload.version
         const requestBlob = new Blob([JSON.stringify(requestData)], {
             type: 'application/json'
         })
@@ -123,7 +170,8 @@ export class RealSnippetOperations implements SnippetOperations {
 
         if (!res.ok) {
             const errorText = await res.text()
-            throw new Error(`Error creando snippet: ${res.status} - ${errorText}`)
+            const message = RealSnippetOperations.extractErrorMessage("Error creando snippet", errorText)
+            throw new Error(message)
         }
 
         const data = await res.json()
@@ -141,28 +189,25 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async updateSnippetById(id: string, updateSnippet: UpdateSnippet): Promise<Snippet> {
-        const payload = updateSnippet as UpdateSnippet & {
-            name?: string;
-            description?: string;
-            language?: string;
-            version?: string;
-            extension?: string;
-        }
-        if (!payload.name || !payload.language || !payload.version) {
-            throw new Error("Nombre, lenguaje y versión son obligatorios para actualizar un snippet.")
+        const payload = updateSnippet
+        if (!payload.name || !payload.language) {
+            throw new Error("Nombre y lenguaje son obligatorios para actualizar un snippet.")
         }
 
-        const fileBlob = new Blob([updateSnippet.content], { type: 'text/plain' })
         const formData = new FormData()
-        const extension = payload.extension ?? 'prs'
-        formData.append('file', fileBlob, `${payload.name}.${extension}`)
 
-        const requestPayload = {
+        const extension = (payload.extension ?? 'prs').replace(/^\./, '')
+        const fileNameBase = payload.name.trim()
+        const fileBlob = new Blob([updateSnippet.content], { type: 'text/plain' })
+        formData.append('file', fileBlob, `${fileNameBase}.${extension}`)
+
+        const requestPayload: Record<string, string> = {
             name: payload.name,
-            description: payload.description,
             language: payload.language,
-            version: payload.version
         }
+        if (payload.description) requestPayload.description = payload.description
+        if (payload.version) requestPayload.version = payload.version
+
         formData.append('request', new Blob([JSON.stringify(requestPayload)], { type: 'application/json' }))
 
         const headers = await authHeaders(this.getToken, false)
@@ -173,7 +218,11 @@ export class RealSnippetOperations implements SnippetOperations {
             headers,
             body: formData
         })
-        if (!res.ok) throw new Error("Error actualizando snippet")
+        if (!res.ok) {
+            const errorText = await res.text()
+            const message = RealSnippetOperations.extractErrorMessage("Error actualizando snippet", errorText)
+            throw new Error(message)
+        }
         const data = await res.json()
         return mapSnippetResponse(data)
     }

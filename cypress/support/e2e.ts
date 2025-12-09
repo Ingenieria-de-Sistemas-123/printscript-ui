@@ -1,10 +1,8 @@
-// cypress/support/e2e.ts
-
 import "./commands";
 import { loginViaAuth0Ui } from "./auth-provider-commands/auth0";
 
-// (Opcional pero prolijo si usás TypeScript)
 declare global {
+    // eslint-disable-next-line @typescript-eslint/no-namespace
     namespace Cypress {
         interface Chainable {
             loginToAuth0(username: string, password: string): Chainable<void>;

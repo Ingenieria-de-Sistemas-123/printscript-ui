@@ -3,14 +3,14 @@ import {CreateSnippet} from "../../src/utils/snippet";
 
 describe('Home', () => {
     beforeEach(() => {
-        cy.loginToAuth0(
-            AUTH0_USERNAME,
-            AUTH0_PASSWORD
-        )
+        const username = Cypress.env('AUTH0_USERNAME') as string;
+        const password = Cypress.env('AUTH0_PASSWORD') as string;
+
+        cy.loginToAuth0(username, password);
     })
     before(() => {
-        process.env.FRONTEND_URL = Cypress.env("VITE_FRONTEND_URL");
-        process.env.BACKEND_URL = Cypress.env("VITE_BACKEND_URL");
+        process.env.FRONTEND_URL = Cypress.env("FRONTEND_URL");
+        process.env.BACKEND_URL = Cypress.env("BACKEND_URL");
     })
     it('Renders home', () => {
         cy.visit(FRONTEND_URL)

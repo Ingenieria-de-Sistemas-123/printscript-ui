@@ -138,28 +138,25 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async updateSnippetById(id: string, updateSnippet: UpdateSnippet): Promise<Snippet> {
-        const payload = updateSnippet as UpdateSnippet & {
-            name?: string;
-            description?: string;
-            language?: string;
-            version?: string;
-            extension?: string;
-        }
-        if (!payload.name || !payload.language || !payload.version) {
-            throw new Error("Nombre, lenguaje y versión son obligatorios para actualizar un snippet.")
+        const payload = updateSnippet
+        if (!payload.name || !payload.language) {
+            throw new Error("Nombre y lenguaje son obligatorios para actualizar un snippet.")
         }
 
-        const fileBlob = new Blob([updateSnippet.content], { type: 'text/plain' })
         const formData = new FormData()
-        const extension = payload.extension ?? 'prs'
-        formData.append('file', fileBlob, `${payload.name}.${extension}`)
 
-        const requestPayload = {
+        const extension = (payload.extension ?? 'prs').replace(/^\./, '')
+        const fileNameBase = payload.name.trim()
+        const fileBlob = new Blob([updateSnippet.content], { type: 'text/plain' })
+        formData.append('file', fileBlob, `${fileNameBase}.${extension}`)
+
+        const requestPayload: Record<string, string> = {
             name: payload.name,
-            description: payload.description,
             language: payload.language,
-            version: payload.version
         }
+        if (payload.description) requestPayload.description = payload.description
+        if (payload.version) requestPayload.version = payload.version
+
         formData.append('request', new Blob([JSON.stringify(requestPayload)], { type: 'application/json' }))
 
         const headers = await authHeaders(this.getToken, false)

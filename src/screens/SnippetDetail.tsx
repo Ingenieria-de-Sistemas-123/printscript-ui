@@ -79,6 +79,24 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
         shareSnippet({snippetId: id, userId})
     }
 
+    const handleSaveSnippet = () => {
+        if (!snippet?.name || !snippet?.language) {
+            console.error("Snippet data is incomplete. Cannot update snippet without name and language.")
+            return
+        }
+        updateSnippet({
+            id: id,
+            updateSnippet: {
+                name: snippet.name,
+                language: snippet.language,
+                content: code,
+                description: snippet.description,
+                version: snippet.version,
+                extension: snippet.extension,
+            }
+        })
+    }
+
     return (
         <Box p={4} minWidth={'60vw'}>
             <Box width={'100%'} p={2} display={'flex'} justifyContent={'flex-end'}>
@@ -123,7 +141,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                             </IconButton>
                         </Tooltip>
                         <Tooltip title={"Save changes"}>
-                            <IconButton color={"primary"} onClick={() => updateSnippet({id: id, updateSnippet: {content: code}})} disabled={isUpdateSnippetLoading || snippet?.content === code} >
+                            <IconButton color={"primary"} onClick={handleSaveSnippet} disabled={isUpdateSnippetLoading || snippet?.content === code} >
                                 <Save />
                             </IconButton>
                         </Tooltip>

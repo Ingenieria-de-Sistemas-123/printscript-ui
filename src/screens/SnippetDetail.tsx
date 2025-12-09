@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {ChangeEvent, useEffect, useRef, useState} from "react";
 import Editor from "react-simple-code-editor";
 import {highlight, languages} from "prismjs";
 import "prismjs/components/prism-clike";
@@ -9,20 +9,29 @@ import CloseIcon from '@mui/icons-material/Close';
 import {
     useUpdateSnippetById
 } from "../utils/queries.tsx";
-import {useFormatSnippet, useGetSnippetById, useShareSnippet} from "../utils/queries.tsx";
+import {useFormatSnippet, useGetFileTypes, useGetSnippetById, useShareSnippet} from "../utils/queries.tsx";
 import {Bòx} from "../components/snippet-table/SnippetBox.tsx";
-import {BugReport, Delete, Download, Save, Share} from "@mui/icons-material";
+import {BugReport, Delete, Download, Save, Share, UploadFile} from "@mui/icons-material";
 import {ShareSnippetModal} from "../components/snippet-detail/ShareSnippetModal.tsx";
 import {TestSnippetModal} from "../components/snippet-test/TestSnippetModal.tsx";
-import {Snippet} from "../utils/snippet.ts";
+import {Snippet, getDefaultLanguageVersion, getFileLanguage} from "../utils/snippet.ts";
 import {SnippetExecution} from "./SnippetExecution.tsx";
 import ReadMoreIcon from '@mui/icons-material/ReadMore';
 import {queryClient} from "../App.tsx";
 import {DeleteConfirmationModal} from "../components/snippet-detail/DeleteConfirmationModal.tsx";
+import {useSnackbarContext} from "../contexts/snackbarContext.tsx";
 
 type SnippetDetailProps = {
     id: string;
     handleCloseModal: () => void;
+}
+
+type SnippetMetadata = {
+    name?: string;
+    description?: string;
+    language?: string;
+    version?: string;
+    extension?: string;
 }
 
 const DownloadButton = ({snippet}: { snippet?: Snippet }) => {
@@ -53,18 +62,32 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
     const [code, setCode] = useState(
         ""
     );
+    const [snippetMeta, setSnippetMeta] = useState<SnippetMetadata | undefined>(undefined)
     const [shareModalOppened, setShareModalOppened] = useState(false)
     const [deleteConfirmationModalOpen, setDeleteConfirmationModalOpen] = useState(false)
     const [testModalOpened, setTestModalOpened] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null)
+    const {createSnackbar} = useSnackbarContext()
 
     const {data: snippet, isLoading} = useGetSnippetById(id);
+    const {data: fileTypes} = useGetFileTypes();
     const {mutate: shareSnippet, isLoading: loadingShare} = useShareSnippet()
     const {mutate: formatSnippet, isLoading: isFormatLoading, data: formatSnippetData} = useFormatSnippet()
-    const {mutate: updateSnippet, isLoading: isUpdateSnippetLoading} = useUpdateSnippetById({onSuccess: () => queryClient.invalidateQueries(['snippet', id])})
+    const {mutate: updateSnippet, isLoading: isUpdateSnippetLoading} = useUpdateSnippetById({
+        onSuccess: () => queryClient.invalidateQueries(['snippet', id]),
+        onError: (error) => createSnackbar('error', error.message)
+    })
 
     useEffect(() => {
         if (snippet) {
-            setCode(snippet.content);
+            setCode(snippet.content ?? "");
+            setSnippetMeta({
+                name: snippet.name,
+                description: snippet.description,
+                language: snippet.language,
+                version: snippet.version,
+                extension: snippet.extension,
+            })
         }
     }, [snippet]);
 
@@ -79,23 +102,80 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
         shareSnippet({snippetId: id, userId})
     }
 
+    const handleLoadSnippetFromFile = (event: ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files
+        if (!files || !files.length) {
+            createSnackbar('error', "Please select a file to upload")
+            return
+        }
+        const file = files[0]
+        const splitName = file.name.split(".")
+        const extension = splitName.pop()
+        const baseName = splitName.join(".") || file.name
+        if (!extension) {
+            createSnackbar('error', "Unable to determine file extension")
+            event.target.value = ""
+            return
+        }
+
+        if (!fileTypes) {
+            createSnackbar('error', "File types are still loading. Please try again in a moment.")
+            event.target.value = ""
+            return
+        }
+
+        const fileType = getFileLanguage(fileTypes, extension)
+        if (!fileType) {
+            createSnackbar('error', `File type .${extension} not supported`)
+            event.target.value = ""
+            return
+        }
+
+        file.text().then((text) => {
+            setCode(text)
+            setSnippetMeta(prev => ({
+                ...prev,
+                name: baseName,
+                language: fileType.language,
+                extension: fileType.extension,
+                version: getDefaultLanguageVersion(fileTypes ?? [], fileType.language) ?? prev?.version,
+            }))
+            createSnackbar('info', 'Snippet content loaded from file')
+        }).catch(() => {
+            createSnackbar('error', "Error reading selected file")
+        }).finally(() => {
+            event.target.value = ""
+        })
+    }
+
     const handleSaveSnippet = () => {
-        if (!snippet?.name || !snippet?.language) {
-            console.error("Snippet data is incomplete. Cannot update snippet without name and language.")
+        const name = snippetMeta?.name ?? snippet?.name
+        const language = snippetMeta?.language ?? snippet?.language
+        if (!name || !language) {
+            createSnackbar('error', "Name and language are required to update a snippet")
             return
         }
         updateSnippet({
             id: id,
             updateSnippet: {
-                name: snippet.name,
-                language: snippet.language,
+                name,
+                language,
                 content: code,
-                description: snippet.description,
-                version: snippet.version,
-                extension: snippet.extension,
+                description: snippetMeta?.description ?? snippet?.description,
+                version: snippetMeta?.version ?? snippet?.version,
+                extension: snippetMeta?.extension ?? snippet?.extension,
             }
         })
     }
+
+    const isSnippetDirty = snippet ? (
+        snippet.content !== code ||
+        (snippetMeta?.name !== undefined && snippetMeta.name !== snippet.name) ||
+        (snippetMeta?.language !== undefined && snippetMeta.language !== snippet.language) ||
+        (snippetMeta?.description !== undefined && snippetMeta.description !== snippet.description) ||
+        (snippetMeta?.version !== undefined && snippetMeta.version !== snippet.version) ||
+        (snippetMeta?.extension !== undefined && snippetMeta.extension !== snippet.extension)
+    ) : false
 
     return (
         <Box p={4} minWidth={'60vw'}>
@@ -120,6 +200,11 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                             </IconButton>
                         </Tooltip>
                         <DownloadButton snippet={snippet}/>
+                        <Tooltip title={"Load content from file"}>
+                            <IconButton onClick={() => fileInputRef.current?.click()}>
+                                <UploadFile/>
+                            </IconButton>
+                        </Tooltip>
                         {/*<Tooltip title={runSnippet ? "Stop run" : "Run"}>*/}
                         {/*  <IconButton onClick={() => setRunSnippet(!runSnippet)}>*/}
                         {/*    {runSnippet ? <StopRounded/> : <PlayArrow/>}*/}
@@ -131,8 +216,8 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                                 onClick={() =>
                                     formatSnippet({
                                         content: code,
-                                        language: snippet?.language ?? "printscript",
-                                        version: snippet?.version ?? "1.0",
+                                        language: snippetMeta?.language ?? snippet?.language ?? "printscript",
+                                        version: snippetMeta?.version ?? snippet?.version ?? "1.0",
                                     })
                                 }
                                 disabled={isFormatLoading}
@@ -141,7 +226,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                             </IconButton>
                         </Tooltip>
                         <Tooltip title={"Save changes"}>
-                            <IconButton color={"primary"} onClick={handleSaveSnippet} disabled={isUpdateSnippetLoading || snippet?.content === code} >
+                            <IconButton color={"primary"} onClick={handleSaveSnippet} disabled={isUpdateSnippetLoading || !isSnippetDirty} >
                                 <Save />
                             </IconButton>
                         </Tooltip>
@@ -167,12 +252,36 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                             />
                         </Bòx>
                     </Box>
+                    {snippet?.lintErrors && snippet.lintErrors.length > 0 && (
+                        <Box marginTop={2}>
+                            <Alert severity="error">
+                                <Typography fontWeight={"bold"} mb={1}>Lint issues detected</Typography>
+                                <Box component="ul" sx={{paddingLeft: 3, margin: 0}}>
+                                    {snippet.lintErrors.map((lintError, index) => {
+                                        const hasLine = typeof lintError.line === "number"
+                                        const hasColumn = typeof lintError.column === "number"
+                                        const location = hasLine
+                                            ? ` (line ${lintError.line}${hasColumn ? `, column ${lintError.column}` : ""})`
+                                            : ""
+                                        return (
+                                            <li key={`${lintError.rule ?? 'lint'}-${lintError.line ?? 'no-line'}-${index}`}>
+                                                {lintError.rule ? `${lintError.rule}: ` : ""}
+                                                {lintError.message}
+                                                {location}
+                                            </li>
+                                        )
+                                    })}
+                                </Box>
+                            </Alert>
+                        </Box>
+                    )}
                     <Box pt={1} flex={1} marginTop={2}>
                         <Alert severity="info">Output</Alert>
                         <SnippetExecution />
                     </Box>
                 </>
             }
+            <input hidden ref={fileInputRef} type="file" onChange={handleLoadSnippetFromFile}/>
             <ShareSnippetModal loading={loadingShare || isLoading} open={shareModalOppened}
                                onClose={() => setShareModalOppened(false)}
                                onShare={handleShareSnippet}/>

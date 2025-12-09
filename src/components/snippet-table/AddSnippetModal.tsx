@@ -22,6 +22,7 @@ import {CreateSnippet, CreateSnippetWithLang} from "../../utils/snippet.ts";
 import {ModalWrapper} from "../common/ModalWrapper.tsx";
 import {useCreateSnippet, useGetFileTypes} from "../../utils/queries.tsx";
 import {queryClient} from "../../App.tsx";
+import {useSnackbarContext} from "../../contexts/snackbarContext.tsx";
 
 export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
     open: boolean,
@@ -35,6 +36,7 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
         onSuccess: () => queryClient.invalidateQueries('listSnippets')
     })
     const {data: fileTypes} = useGetFileTypes();
+    const {createSnackbar} = useSnackbarContext()
 
     const handleCreateSnippet = async () => {
         const newSnippet: CreateSnippet = {
@@ -43,8 +45,13 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
             language: language,
             extension: fileTypes?.find((f) => f.language === language)?.extension ?? "prs"
         }
-        await createSnippet(newSnippet);
-        onClose();
+        try {
+            await createSnippet(newSnippet);
+            onClose();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Error creando snippet"
+            createSnackbar('error', message)
+        }
     }
 
     useEffect(() => {

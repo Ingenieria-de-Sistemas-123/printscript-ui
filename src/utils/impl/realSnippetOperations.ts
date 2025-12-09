@@ -167,7 +167,10 @@ export class RealSnippetOperations implements SnippetOperations {
             headers,
             body: formData
         })
-        if (!res.ok) throw new Error("Error actualizando snippet")
+        if (!res.ok) {
+            const errorText = await res.text()
+            throw new Error(errorText || "Error actualizando snippet")
+        }
         const data = await res.json()
         return mapSnippetResponse(data)
     }

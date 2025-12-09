@@ -63,7 +63,7 @@ export const useGetSnippetById = (id: string) => {
     );
 };
 
-export const useCreateSnippet = ({ onSuccess }: { onSuccess: () => void }): UseMutationResult<
+export const useCreateSnippet = ({ onSuccess, onError }: { onSuccess: () => void; onError?: (error: Error) => void }): UseMutationResult<
     Snippet,
     Error,
     CreateSnippet
@@ -71,19 +71,21 @@ export const useCreateSnippet = ({ onSuccess }: { onSuccess: () => void }): UseM
     const snippetOperations = useSnippetsOperations();
     return useMutation<Snippet, Error, CreateSnippet>(
         (createSnippet) => snippetOperations.createSnippet(createSnippet),
-        { onSuccess }
+        { onSuccess, onError }
     );
 };
 
 export const useUpdateSnippetById = ({
                                          onSuccess,
+                                         onError,
                                      }: {
     onSuccess: () => void;
+    onError?: (error: Error) => void;
 }): UseMutationResult<Snippet, Error, { id: string; updateSnippet: UpdateSnippet }> => {
     const snippetOperations = useSnippetsOperations();
     return useMutation<Snippet, Error, { id: string; updateSnippet: UpdateSnippet }>(
         ({ id, updateSnippet }) => snippetOperations.updateSnippetById(id, updateSnippet),
-        { onSuccess }
+        { onSuccess, onError }
     );
 };
 

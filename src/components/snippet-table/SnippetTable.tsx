@@ -1,10 +1,14 @@
 import {
     Box,
     Button,
+    FormControl,
     IconButton,
     InputBase,
+    InputLabel,
     Menu,
     MenuItem,
+    Select,
+    SelectChangeEvent,
     styled,
     Table,
     TableBody,
@@ -22,15 +26,26 @@ import {usePaginationContext} from "../../contexts/paginationContext.tsx";
 import {useSnackbarContext} from "../../contexts/snackbarContext.tsx";
 import {useGetFileTypes} from "../../utils/queries.tsx";
 
+export type SnippetTableFilters = {
+    relation: 'all' | 'owned' | 'shared';
+    language: string;
+    validity: 'all' | 'valid' | 'invalid';
+    sortBy: 'name' | 'language' | 'valid';
+    sortDir: 'asc' | 'desc';
+}
+
 type SnippetTableProps = {
     handleClickSnippet: (id: string) => void;
     snippets?: Snippet[];
     loading: boolean;
-    handleSearchSnippet: (snippetName: string) => void;
+    searchValue: string;
+    onSearchChange: (value: string) => void;
+    filters: SnippetTableFilters;
+    onFilterChange: (filters: Partial<SnippetTableFilters>) => void;
 }
 
 export const SnippetTable = (props: SnippetTableProps) => {
-    const {snippets, handleClickSnippet, loading,handleSearchSnippet} = props;
+    const {snippets, handleClickSnippet, loading, searchValue, onSearchChange, filters, onFilterChange} = props;
     const [addModalOpened, setAddModalOpened] = useState(false);
     const [popoverMenuOpened, setPopoverMenuOpened] = useState(false)
     const [snippet, setSnippet] = useState<CreateSnippetWithLang | undefined>()
@@ -73,6 +88,10 @@ export const SnippetTable = (props: SnippetTableProps) => {
         setPopoverMenuOpened(false)
     }
 
+    const handleSelectChange = (key: keyof SnippetTableFilters) => (event: SelectChangeEvent<string>) => {
+        onFilterChange({ [key]: event.target.value } as Partial<SnippetTableFilters>)
+    }
+
     return (
         <>
             <Box display="flex" flexDirection="row" justifyContent="space-between">
@@ -81,7 +100,8 @@ export const SnippetTable = (props: SnippetTableProps) => {
                         sx={{ml: 1, flex: 1}}
                         placeholder="Search FileType"
                         inputProps={{'aria-label': 'search'}}
-                        onChange={e => handleSearchSnippet(e.target.value)}
+                        value={searchValue}
+                        onChange={e => onSearchChange(e.target.value)}
                     />
                     <IconButton type="button" sx={{p: '10px'}} aria-label="search">
                         <Search/>
@@ -93,12 +113,80 @@ export const SnippetTable = (props: SnippetTableProps) => {
                     Add Snippet
                 </Button>
             </Box>
+            <Box display="flex" flexWrap="wrap" gap={2} mt={2}>
+                <FormControl size="small" sx={{minWidth: 160}}>
+                    <InputLabel id="relation-filter-label">Relation</InputLabel>
+                    <Select
+                        labelId="relation-filter-label"
+                        label="Relation"
+                        value={filters.relation}
+                        onChange={handleSelectChange("relation")}
+                    >
+                        <MenuItem value="all">All</MenuItem>
+                        <MenuItem value="owned">Owned</MenuItem>
+                        <MenuItem value="shared">Shared</MenuItem>
+                    </Select>
+                </FormControl>
+                <FormControl size="small" sx={{minWidth: 160}}>
+                    <InputLabel id="language-filter-label">Language</InputLabel>
+                    <Select
+                        labelId="language-filter-label"
+                        label="Language"
+                        value={filters.language}
+                        onChange={handleSelectChange("language")}
+                    >
+                        <MenuItem value="all">All</MenuItem>
+                        {fileTypes?.map(type => (
+                            <MenuItem key={type.language} value={type.language}>{type.language}</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+                <FormControl size="small" sx={{minWidth: 160}}>
+                    <InputLabel id="validity-filter-label">Validity</InputLabel>
+                    <Select
+                        labelId="validity-filter-label"
+                        label="Validity"
+                        value={filters.validity}
+                        onChange={handleSelectChange("validity")}
+                    >
+                        <MenuItem value="all">All</MenuItem>
+                        <MenuItem value="valid">Valid</MenuItem>
+                        <MenuItem value="invalid">Invalid</MenuItem>
+                    </Select>
+                </FormControl>
+                <FormControl size="small" sx={{minWidth: 160}}>
+                    <InputLabel id="sort-by-label">Sort by</InputLabel>
+                    <Select
+                        labelId="sort-by-label"
+                        label="Sort by"
+                        value={filters.sortBy}
+                        onChange={handleSelectChange("sortBy")}
+                    >
+                        <MenuItem value="name">Name</MenuItem>
+                        <MenuItem value="language">Language</MenuItem>
+                        <MenuItem value="valid">Validity</MenuItem>
+                    </Select>
+                </FormControl>
+                <FormControl size="small" sx={{minWidth: 120}}>
+                    <InputLabel id="sort-dir-label">Direction</InputLabel>
+                    <Select
+                        labelId="sort-dir-label"
+                        label="Direction"
+                        value={filters.sortDir}
+                        onChange={handleSelectChange("sortDir")}
+                    >
+                        <MenuItem value="asc">Ascending</MenuItem>
+                        <MenuItem value="desc">Descending</MenuItem>
+                    </Select>
+                </FormControl>
+            </Box>
             <Table size="medium" sx={{borderSpacing: "0 10px", borderCollapse: "separate"}}>
                 <TableHead>
                     <TableRow sx={{fontWeight: 'bold'}}>
                         <StyledTableCell sx={{fontWeight: "bold"}}>Name</StyledTableCell>
                         <StyledTableCell sx={{fontWeight: "bold"}}>Language</StyledTableCell>
                         <StyledTableCell sx={{fontWeight: "bold"}}>Author</StyledTableCell>
+                        <StyledTableCell sx={{fontWeight: "bold"}}>Relation</StyledTableCell>
                         <StyledTableCell sx={{fontWeight: "bold"}}>Conformance</StyledTableCell>
                     </TableRow>
                 </TableHead>

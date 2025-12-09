@@ -1,4 +1,21 @@
-import {BACKEND_URL} from "../../src/utils/constants";
+import { BACKEND_URL } from "../../src/utils/constants";
+
+const AUTH0_DOMAIN = "https://dev-7t5evioih4aq30t7.us.auth0.com";
+
+const loginViaAuth0 = () => {
+  const username = Cypress.env("AUTH0_USERNAME");
+  const password = Cypress.env("AUTH0_PASSWORD");
+
+  cy.origin(
+    AUTH0_DOMAIN,
+    { args: { username, password } },
+    ({ username, password }) => {
+      cy.get('input[name="username"]').type(username);
+      cy.get('input[name="password"]').type(password, { log: false });
+      cy.get('button[type="submit"]').first().click();
+    },
+  );
+};
 
 describe('Add snippet tests', () => {
   beforeEach(() => {
@@ -8,7 +25,8 @@ describe('Add snippet tests', () => {
     // )
   })
   it('Can add snippets manually', () => {
-    cy.visit("/")
+    cy.visit("/");
+    loginViaAuth0();
     cy.intercept('POST', BACKEND_URL+"/snippets", (req) => {
       req.reply((res) => {
         expect(res.body).to.include.keys("id","name","content","language")
@@ -31,7 +49,8 @@ describe('Add snippet tests', () => {
   })
 
   it('Can add snippets via file', () => {
-    cy.visit("/")
+    cy.visit("/");
+    loginViaAuth0();
     cy.intercept('POST', BACKEND_URL+"/snippets", (req) => {
       req.reply((res) => {
         expect(res.body).to.include.keys("id","name","content","language")

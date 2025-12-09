@@ -8,9 +8,10 @@ import { useAuth0 } from "@auth0/auth0-react";
 import {
     FormatSnippetPayload,
     SnippetDetails,
-    SnippetListFilters,
+    //SnippetListFilters,
     SnippetTestExecution
 } from "../types/snippetDetails.ts";
+import { TestCase } from "../types/TestCase.ts";
 
 export type TestCaseResult = "success" | "fail";
 
@@ -26,7 +27,7 @@ export const useSnippetsOperations = () => {
     return new RealSnippetOperations(getToken);
 };
 
-type PaginatedSnippetDetails = Omit<PaginatedSnippets, "snippets"> & { snippets: SnippetDetails[] };
+/*type PaginatedSnippetDetails = Omit<PaginatedSnippets, "snippets"> & { snippets: SnippetDetails[] };
 
 export const useGetSnippets = (
     page: number = 0,
@@ -42,6 +43,12 @@ export const useGetSnippets = (
             return response as PaginatedSnippetDetails;
         }
     );
+};*/
+
+export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetName?: string) => {
+    const snippetOperations = useSnippetsOperations()
+
+    return useQuery<PaginatedSnippets, Error>(['listSnippets', page,pageSize,snippetName], () => snippetOperations.listSnippetDescriptors(page, pageSize,snippetName));
 };
 
 export const useGetSnippetById = (id: string) => {
@@ -130,6 +137,29 @@ export const useDeleteSnippet = ({ onSuccess }: { onSuccess: () => void }) => {
 export const useGetFileTypes = () => {
     const snippetOperations = useSnippetsOperations();
     return useQuery<FileType[], Error>("fileTypes", () => snippetOperations.getFileTypes());
+};
+
+export const useGetTestCases = () => {
+    const snippetOperations = useSnippetsOperations();
+    return useQuery<TestCase[], Error>("testCases", () => snippetOperations.getTestCases());
+};
+
+export const usePostTestCase = ({ onSuccess }: { onSuccess?: () => void } = {}) => {
+    const snippetOperations = useSnippetsOperations();
+    return useMutation<TestCase, Error, Partial<TestCase>>(
+        (testCase) => snippetOperations.postTestCase(testCase),
+        { onSuccess }
+    );
+};
+
+export const useRemoveTestCase = ({ onSuccess }: { onSuccess?: () => void } = {}) => {
+    const snippetOperations = useSnippetsOperations();
+    return useMutation<string, Error, string>((id) => snippetOperations.removeTestCase(id), { onSuccess });
+};
+
+export const useTestSnippet = () => {
+    const snippetOperations = useSnippetsOperations();
+    return useMutation<TestCaseResult, Error, Partial<TestCase>>((testCase) => snippetOperations.testSnippet(testCase));
 };
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080/api";

@@ -9,8 +9,8 @@ const RulesScreen = () => {
             <Typography variant={"h3"}>
                 Rules
             </Typography>
-          <LintingRulesList />
-          <FormattingRulesList/>
+            <LintingRulesList />
+            <FormattingRulesList/>
 
         </Box>
     )

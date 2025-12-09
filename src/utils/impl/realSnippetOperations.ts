@@ -93,20 +93,17 @@ export class RealSnippetOperations implements SnippetOperations {
 
     async createSnippet(createSnippet: CreateSnippet): Promise<Snippet> {
         const payload = createSnippet as CreateSnippet & { description?: string; version?: string }
-        if (!payload.description || !payload.version) {
-            throw new Error("Descripción y versión son obligatorias para crear un snippet.")
-        }
         const fileBlob = new Blob([createSnippet.content], { type: 'text/plain' })
         const fileName = `${createSnippet.name}.${createSnippet.extension}`
         const formData = new FormData()
         formData.append('file', fileBlob, fileName)
 
-        const requestData = {
+        const requestData: Record<string, string> = {
             name: createSnippet.name,
-            description: payload.description,
             language: createSnippet.language,
-            version: payload.version
         }
+        if (payload.description) requestData.description = payload.description
+        if (payload.version) requestData.version = payload.version
         const requestBlob = new Blob([JSON.stringify(requestData)], {
             type: 'application/json'
         })

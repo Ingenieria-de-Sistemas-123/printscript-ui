@@ -7,64 +7,51 @@ import {Drawer} from "@mui/material";
 import {useGetSnippets} from "../utils/queries.tsx";
 import {usePaginationContext} from "../contexts/paginationContext.tsx";
 import useDebounce from "../hooks/useDebounce.ts";
-import {usePermissionSync} from "../hooks/usePermissionSync.ts";
-import {SnippetListFilters} from "../types/snippetDetails.ts";
 
 const HomeScreen = () => {
-  const { userAccount, loading, error } = usePermissionSync();
-  const {id: paramsId} = useParams<{ id: string }>();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<SnippetListFilters>({relation: 'all', sortBy: 'updated_at', sortDir: 'desc'});
-  const [snippetId, setSnippetId] = useState<string | null>(null)
-  const {page, page_size, count, handleChangeCount, handleGoToPage} = usePaginationContext()
-  const {data, isLoading} = useGetSnippets(page, page_size, filters)
+    const {id: paramsId} = useParams<{ id: string }>();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [snippetName, setSnippetName] = useState('');
+    const [snippetId, setSnippetId] = useState<string | null>(null)
+    const {page, page_size, count, handleChangeCount} = usePaginationContext()
+    const {data, isLoading} = useGetSnippets(page, page_size, snippetName)
 
-  console.log("[HomeScreen] userAccount:", userAccount, "loading:", loading, "error:", error);
+    useEffect(() => {
+        if (data?.count && data.count != count) {
+            handleChangeCount(data.count)
+        }
+    }, [count, data?.count, handleChangeCount]);
 
 
     useEffect(() => {
-    if (data?.count && data.count != count) {
-      handleChangeCount(data.count)
-    }
-  }, [count, data?.count, handleChangeCount]);
+        if (paramsId) {
+            setSnippetId(paramsId);
+        }
+    }, [paramsId]);
 
+    const handleCloseModal = () => setSnippetId(null)
 
-  useEffect(() => {
-    if (paramsId) {
-      setSnippetId(paramsId);
-    }
-  }, [paramsId]);
+    // DeBounce Function
+    useDebounce(() => {
+            setSnippetName(
+                searchTerm
+            );
+        }, [searchTerm], 800
+    );
 
-  const handleCloseModal = () => setSnippetId(null)
+    const handleSearchSnippet = (snippetName: string) => {
+        setSearchTerm(snippetName);
+    };
 
-  // DeBounce Function
-  useDebounce(() => {
-        setFilters(prev => ({
-          ...prev,
-          name: searchTerm || undefined
-        }));
-        handleGoToPage(0);
-      }, [searchTerm, handleGoToPage], 800
-  );
-
-  const handleSearchSnippet = (snippetName: string) => {
-    setSearchTerm(snippetName);
-  };
-
-  const handleFiltersChange = (next: SnippetListFilters) => {
-    setFilters(next);
-    handleGoToPage(0);
-  }
-
-  return (
-      <>
-        <SnippetTable loading={isLoading} handleClickSnippet={setSnippetId} snippets={data?.snippets}
-                      handleSearchSnippet={handleSearchSnippet} filters={filters} onChangeFilters={handleFiltersChange}/>
-        <Drawer open={!!snippetId} anchor={"right"} onClose={handleCloseModal}>
-          {snippetId && <SnippetDetail handleCloseModal={handleCloseModal} id={snippetId}/>}
-        </Drawer>
-      </>
-  )
+    return (
+        <>
+            <SnippetTable loading={isLoading} handleClickSnippet={setSnippetId} snippets={data?.snippets}
+                          handleSearchSnippet={handleSearchSnippet}/>
+            <Drawer open={!!snippetId} anchor={"right"} onClose={handleCloseModal}>
+                {snippetId && <SnippetDetail handleCloseModal={handleCloseModal} id={snippetId}/>}
+            </Drawer>
+        </>
+    )
 }
 
 export default withNavbar(HomeScreen);

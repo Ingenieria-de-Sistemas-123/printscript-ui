@@ -225,6 +225,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                                         content: code,
                                         language: snippetMeta?.language ?? snippet?.language ?? "printscript",
                                         version: snippetMeta?.version ?? snippet?.version ?? "1.0",
+                                        check: false,
                                     })
                                 }
                                 disabled={isFormatLoading}
@@ -265,16 +266,17 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                                 <Typography fontWeight={"bold"} mb={1}>Lint issues detected</Typography>
                                 <Box component="ul" sx={{paddingLeft: 3, margin: 0}}>
                                     {snippet.lintErrors.map((lintError, index) => {
-                                        const hasLine = typeof lintError.line === "number"
-                                        const hasColumn = typeof lintError.column === "number"
-                                        const location = hasLine
-                                            ? ` (line ${lintError.line}${hasColumn ? `, column ${lintError.column}` : ""})`
-                                            : ""
+                                        const location = ` (${lintError.startLine}:${lintError.startCol} → ${lintError.endLine}:${lintError.endCol})`
+                                        const severityColor = lintError.severity === "ERROR" ? "error.main" : "warning.main"
                                         return (
-                                            <li key={`${lintError.rule ?? 'lint'}-${lintError.line ?? 'no-line'}-${index}`}>
-                                                {lintError.rule ? `${lintError.rule}: ` : ""}
-                                                {lintError.message}
-                                                {location}
+                                            <li key={`${lintError.rule}-${lintError.startLine}-${index}`}>
+                                                <Box display="inline-flex" alignItems="center" gap={1}>
+                                                    <Typography fontWeight="bold">{lintError.rule}</Typography>
+                                                    <Typography variant="caption" sx={{color: severityColor, fontWeight: 700}}>
+                                                        {lintError.severity}
+                                                    </Typography>
+                                                </Box>
+                                                {`: ${lintError.message}${location}`}
                                             </li>
                                         )
                                     })}

@@ -65,62 +65,21 @@ const paginatedUsers: PaginatedUsers = {
 }
 
 const INITIAL_FORMATTING_RULES: Rule[] = [
-    {
-        id: '1',
-        name: "indentation",
-        isActive: true,
-        value: 3
-    },
-    {
-        id: '2',
-        name: "open-if-block-on-same-line",
-        isActive: false,
-    },
-    {
-        id: '3',
-        name: "max-line-length",
-        isActive: true,
-        value: 100
-    },
-    {
-        id: '4',
-        name: "no-trailing-spaces",
-        isActive: false,
-        value: null
-    },
-    {
-        id: '5',
-        name: "no-multiple-empty-lines",
-        isActive: false,
-        value: null,
-    }
+    { id: "spaceBeforeColon", name: "Espacio antes de ':'", active: true, value: null },
+    { id: "spaceAfterColon", name: "Espacio después de ':'", active: true, value: null },
+    { id: "spaceAroundEquals", name: "Espacio alrededor de '='", active: true, value: null },
+    { id: "spaceAroundOperators", name: "Espacio alrededor de operadores", active: true, value: null },
+    { id: "lineJumpAfterSemicolon", name: "Salto de línea tras ';'", active: true, value: null },
+    { id: "singleSpaceSeparation", name: "Separación de 1 espacio", active: true, value: null },
+    { id: "indentSize", name: "Tamaño de indentación", active: true, value: 2 },
 ]
 
 const INITIAL_LINTING_RULES: Rule[] = [
-    {
-        id: '1',
-        name: "no-expressions-in-print-line",
-        isActive: true,
-        value: null
-    },
-    {
-        id: '2',
-        name: "no-unused-vars",
-        isActive: true,
-        value: null
-    },
-    {
-        id: '3',
-        name: "no-undef-vars",
-        isActive: false,
-        value: null
-    },
-    {
-        id: '4',
-        name: "no-unused-params",
-        isActive: false,
-        value: null
-    },
+    { id: "no-duplicate-var", name: "Variables duplicadas", active: true, value: null },
+    { id: "identifier-style", name: "Estilo de identificadores", active: true, value: null },
+    { id: "println-restriction", name: "Restricción de println", active: true, value: null },
+    { id: "string-number-concat", name: "Concat string + number", active: true, value: null },
+    { id: "read-input-prompt", name: "Prompt en readInput", active: true, value: null },
 ]
 
 const fakeTestCases: TestCase[] = [

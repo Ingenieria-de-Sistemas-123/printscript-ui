@@ -54,8 +54,18 @@ type RawSnippetResponse = {
     ownerName?: string;
     relation?: string;
     permission?: string;
-    lintErrors?: SnippetLintError[];
+    lintErrors?: RawLintIssue[];
     tests?: SnippetTest[];
+};
+
+type RawLintIssue = {
+    rule?: string | null;
+    message?: string | null;
+    severity?: string | null;
+    startLine?: number | null;
+    startCol?: number | null;
+    endLine?: number | null;
+    endCol?: number | null;
 };
 
 type RawPaginatedResponse = {
@@ -71,6 +81,16 @@ type RawPaginatedResponse = {
     count?: number;
 };
 
+const mapLintIssue = (issue: RawLintIssue): SnippetLintError => ({
+    rule: issue.rule ?? "unknown-rule",
+    message: issue.message ?? "Issue detectada",
+    severity: issue.severity === "ERROR" ? "ERROR" : "WARNING",
+    startLine: issue.startLine ?? 0,
+    startCol: issue.startCol ?? 0,
+    endLine: issue.endLine ?? issue.startLine ?? 0,
+    endCol: issue.endCol ?? issue.startCol ?? 0,
+});
+
 const mapSnippetResponse = (payload: RawSnippetResponse): SnippetDetails => ({
     id: payload.id,
     name: payload.name,
@@ -83,7 +103,7 @@ const mapSnippetResponse = (payload: RawSnippetResponse): SnippetDetails => ({
     complianceMessage: payload.complianceMessage,
     author: payload.ownerName ?? payload.author ?? "Unknown",
     relation: (payload.relation as SnippetDetails["relation"]) ?? (payload.permission as SnippetDetails["relation"]) ?? undefined,
-    lintErrors: payload.lintErrors ?? [],
+    lintErrors: (payload.lintErrors ?? []).map(mapLintIssue),
     tests: payload.tests ?? [],
 })
 
@@ -247,7 +267,7 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async getFormatRules(): Promise<Rule[]> {
-        const res = await fetch(`${BASE_URL}/rules/format`, {
+        const res = await fetch(`${BASE_URL}/snippets/rules/formatting`, {
             headers: await authHeaders(this.getToken)
         })
         if (!res.ok) throw new Error("Error obteniendo reglas de formato")
@@ -255,7 +275,7 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async getLintingRules(): Promise<Rule[]> {
-        const res = await fetch(`${BASE_URL}/rules/lint`, {
+        const res = await fetch(`${BASE_URL}/snippets/rules/linting`, {
             headers: await authHeaders(this.getToken)
         })
         if (!res.ok) throw new Error("Error obteniendo reglas de lint")
@@ -267,10 +287,12 @@ export class RealSnippetOperations implements SnippetOperations {
             throw new Error("Lenguaje y versión son obligatorios para formatear un snippet.");
         }
 
+        const bodyPayload = { ...payload, check: payload.check ?? false };
+
         const res = await fetch(`${BASE_URL}/snippets/format`, {
             method: "POST",
             headers: await authHeaders(this.getToken),
-            body: JSON.stringify(payload),
+            body: JSON.stringify(bodyPayload),
         });
 
         if (!res.ok) {
@@ -338,8 +360,8 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async modifyFormatRule(newRules: Rule[]): Promise<Rule[]> {
-        const res = await fetch(`${BASE_URL}/rules/format`, {
-            method: "PUT",
+        const res = await fetch(`${BASE_URL}/snippets/rules/formatting`, {
+            method: "POST",
             headers: await authHeaders(this.getToken),
             body: JSON.stringify(newRules)
         })
@@ -348,8 +370,8 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async modifyLintingRule(newRules: Rule[]): Promise<Rule[]> {
-        const res = await fetch(`${BASE_URL}/rules/lint`, {
-            method: "PUT",
+        const res = await fetch(`${BASE_URL}/snippets/rules/linting`, {
+            method: "POST",
             headers: await authHeaders(this.getToken),
             body: JSON.stringify(newRules)
         })

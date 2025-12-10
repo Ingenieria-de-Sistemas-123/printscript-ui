@@ -24,6 +24,44 @@ import {
 import { Rule } from "../types/Rule";
 import { withNavbar } from "../components/navbar/withNavbar";
 
+type AllowedRule = {
+    id: string;
+    label: string;
+    defaultValue?: number | string | null;
+};
+
+const ALLOWED_FORMAT_RULES: AllowedRule[] = [
+    { id: "spaceBeforeColon", label: "Espacio antes de ':'" },
+    { id: "spaceAfterColon", label: "Espacio después de ':'" },
+    { id: "spaceAroundEquals", label: "Espacio alrededor de '='" },
+    { id: "spaceAroundOperators", label: "Espacio alrededor de operadores" },
+    { id: "lineJumpAfterSemicolon", label: "Salto de línea tras ';'" },
+    { id: "singleSpaceSeparation", label: "Separación de 1 espacio" },
+    { id: "indentSize", label: "Tamaño de indentación", defaultValue: 2 },
+];
+
+const ALLOWED_LINT_RULES: AllowedRule[] = [
+    { id: "no-duplicate-var", label: "Variables duplicadas" },
+    { id: "identifier-style", label: "Estilo de identificadores" },
+    { id: "println-restriction", label: "Restricción de println" },
+    { id: "string-number-concat", label: "Concat string + number" },
+    { id: "read-input-prompt", label: "Prompt en readInput" },
+];
+
+const normalizeRules = (raw: Rule[] | undefined, allowed: AllowedRule[]): Rule[] => {
+    const byId = new Map(raw?.map((r) => [r.id, r]));
+    return allowed.map(({ id, label, defaultValue }) => {
+        const existing = byId.get(id);
+        const active = existing?.active ?? (existing as { isActive?: boolean } | undefined)?.isActive ?? false;
+        return {
+            id,
+            name: label,
+            active,
+            value: typeof existing?.value === "undefined" ? defaultValue ?? null : existing.value,
+        } as Rule;
+    });
+};
+
 const RulesScreen: React.FC = () => {
     // ---- Queries ----
     const {
@@ -63,22 +101,22 @@ const RulesScreen: React.FC = () => {
     const [localLintRules, setLocalLintRules] = useState<Rule[]>([]);
 
     useEffect(() => {
-        if (formatRules) setLocalFormatRules(formatRules);
+        if (formatRules) setLocalFormatRules(normalizeRules(formatRules, ALLOWED_FORMAT_RULES));
     }, [formatRules]);
 
     useEffect(() => {
-        if (lintRules) setLocalLintRules(lintRules);
+        if (lintRules) setLocalLintRules(normalizeRules(lintRules, ALLOWED_LINT_RULES));
     }, [lintRules]);
 
     const handleToggleRule = (
         type: "format" | "lint",
         id: string,
-        isActive: boolean
+        active: boolean
     ) => {
         const setter = type === "format" ? setLocalFormatRules : setLocalLintRules;
         const rules = type === "format" ? localFormatRules : localLintRules;
 
-        setter(rules.map((r) => (r.id === id ? { ...r, isActive } : r)));
+        setter(rules.map((r) => (r.id === id ? { ...r, active } : r)));
     };
 
     const handleValueChange = (
@@ -90,7 +128,11 @@ const RulesScreen: React.FC = () => {
         const rules = type === "format" ? localFormatRules : localLintRules;
 
         const parsed =
-            value === "" ? null : Number.isNaN(Number(value)) ? null : Number(value);
+            value === ""
+                ? null
+                : Number.isNaN(Number(value))
+                    ? value
+                    : Number(value);
 
         setter(
             rules.map((r) => (r.id === id ? { ...r, value: parsed } : r))
@@ -211,7 +253,7 @@ const RulesScreen: React.FC = () => {
                                                 />
                                             )}
                                             <Switch
-                                                checked={rule.isActive}
+                                                checked={rule.active}
                                                 onChange={(e) =>
                                                     handleToggleRule(
                                                         "format",
@@ -300,7 +342,7 @@ const RulesScreen: React.FC = () => {
                                                 />
                                             )}
                                             <Switch
-                                                checked={rule.isActive}
+                                                checked={rule.active}
                                                 onChange={(e) =>
                                                     handleToggleRule(
                                                         "lint",

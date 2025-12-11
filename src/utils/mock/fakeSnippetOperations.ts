@@ -4,10 +4,9 @@ import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snipp
 import autoBind from 'auto-bind'
 import {PaginatedUsers} from "../users.ts";
 import {TestCase} from "../../types/TestCase.ts";
-import {TestCaseResult} from "../queries.tsx";
 import {FileType} from "../../types/FileType.ts";
 import {Rule} from "../../types/Rule.ts";
-import {FormatSnippetPayload} from "../../types/snippetDetails.ts";
+import {FormatSnippetPayload, SnippetTestExecution} from "../../types/snippetDetails.ts";
 const DELAY: number = 1000
 
 export class FakeSnippetOperations implements SnippetOperations {
@@ -82,27 +81,27 @@ export class FakeSnippetOperations implements SnippetOperations {
     });
   }
 
-    getTestCases(): Promise<TestCase[]> {
+    getSnippetTests(snippetId: string): Promise<TestCase[]> {
         return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.getTestCases()), DELAY)
+            setTimeout(() => resolve(this.fakeStore.getTestCases(snippetId)), DELAY)
         })
     }
 
-    postTestCase(testCase: TestCase): Promise<TestCase> {
+    saveSnippetTest(snippetId: string, testCase: TestCase): Promise<TestCase> {
         return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.postTestCase(testCase)), DELAY)
+            setTimeout(() => resolve(this.fakeStore.upsertTestCase(snippetId, testCase)), DELAY)
         })
     }
 
-    removeTestCase(id: string): Promise<string> {
+    removeSnippetTest(snippetId: string, id: string): Promise<string> {
         return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.removeTestCase(id)), DELAY)
+            setTimeout(() => resolve(this.fakeStore.removeTestCase(snippetId, id)), DELAY)
         })
     }
 
-    testSnippet(): Promise<TestCaseResult> {
+    executeSnippetTest(snippetId: string, testId: string): Promise<SnippetTestExecution> {
         return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.testSnippet()), DELAY)
+            setTimeout(() => resolve(this.fakeStore.executeSnippetTest(snippetId, testId)), DELAY)
         })
     }
 

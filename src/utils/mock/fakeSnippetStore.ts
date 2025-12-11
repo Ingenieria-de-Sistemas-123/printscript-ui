@@ -2,9 +2,9 @@ import {ComplianceEnum, CreateSnippet, Snippet, UpdateSnippet} from '../snippet'
 import {v4 as uuid} from 'uuid'
 import {PaginatedUsers} from "../users.ts";
 import {TestCase} from "../../types/TestCase.ts";
-import {TestCaseResult} from "../queries.tsx";
 import {FileType} from "../../types/FileType.ts";
 import {Rule} from "../../types/Rule.ts";
+import {SnippetTestExecution} from "../../types/snippetDetails.ts";
 
 const INITIAL_SNIPPETS: Snippet[] = [
     {
@@ -118,7 +118,7 @@ const fileTypes: FileType[] = [
 
 export class FakeSnippetStore {
     private readonly snippetMap: Map<string, Snippet> = new Map()
-    private readonly testCaseMap: Map<string, TestCase> = new Map()
+    private readonly snippetTests: Map<string, TestCase[]> = new Map()
     private formattingRules: Rule[] = [];
     private lintingRules: Rule[] = [];
 
@@ -127,8 +127,10 @@ export class FakeSnippetStore {
             this.snippetMap.set(snippet.id, snippet)
         })
 
-        fakeTestCases.forEach(testCase => {
-            this.testCaseMap.set(testCase.id, testCase)
+        INITIAL_SNIPPETS.forEach(snippet => {
+            // clone tests per snippet
+            const clonedTests = fakeTestCases.map(tc => ({...tc, id: uuid()}))
+            this.snippetTests.set(snippet.id, clonedTests)
         })
         this.formattingRules = INITIAL_FORMATTING_RULES
         this.lintingRules = INITIAL_LINTING_RULES
@@ -191,19 +193,26 @@ export class FakeSnippetStore {
         return `//Mocked format of snippet :) \n${snippetContent}`
     }
 
-    getTestCases(): TestCase[] {
-        return Array.from(this.testCaseMap, ([, value]) => value)
+    getTestCases(snippetId: string): TestCase[] {
+        return [...(this.snippetTests.get(snippetId) ?? [])]
     }
 
-    postTestCase(testCase: Partial<TestCase>): TestCase {
-        const id = testCase.id ?? uuid()
+    upsertTestCase(snippetId: string, testCase: Partial<TestCase>): TestCase {
+        const current = this.snippetTests.get(snippetId) ?? []
+        if (testCase.id) {
+            const updated = current.map(tc => tc.id === testCase.id ? {...tc, ...testCase} as TestCase : tc)
+            this.snippetTests.set(snippetId, updated)
+            return updated.find(tc => tc.id === testCase.id) as TestCase
+        }
+        const id = uuid()
         const newTestCase = {...testCase, id} as TestCase
-        this.testCaseMap.set(id,newTestCase)
+        this.snippetTests.set(snippetId, [...current, newTestCase])
         return newTestCase
     }
 
-    removeTestCase(id: string): string {
-        this.testCaseMap.delete(id)
+    removeTestCase(snippetId: string, id: string): string {
+        const current = this.snippetTests.get(snippetId) ?? []
+        this.snippetTests.set(snippetId, current.filter(tc => tc.id !== id))
         return id
     }
 
@@ -212,8 +221,17 @@ export class FakeSnippetStore {
         return id
     }
 
-    testSnippet(): TestCaseResult {
-        return Math.random() > 0.5 ? "success" : "fail"
+    executeSnippetTest(_snippetId: string, testId: string): SnippetTestExecution {
+        const passed = Math.random() > 0.5
+        const now = new Date().toISOString()
+        return {
+            id: testId,
+            passed,
+            exitCode: passed ? 0 : 1,
+            stdout: passed ? "OK" : "Expected different output",
+            stderr: passed ? null : "Failure",
+            lastRunAt: now,
+        }
     }
 
     getFileTypes(): FileType[] {

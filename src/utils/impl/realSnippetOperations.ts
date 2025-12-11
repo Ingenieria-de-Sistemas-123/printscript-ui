@@ -2,7 +2,7 @@ import {SnippetOperations} from '../snippetOperations'
 import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snippet'
 import {PaginatedUsers} from "../users"
 import {TestCase} from "../../types/TestCase"
-import {TestCaseResult} from "../queries"
+import {SnippetTestExecution} from "../../types/snippetDetails"
 import {FileType} from "../../types/FileType"
 import {Rule} from "../../types/Rule"
 import {
@@ -304,26 +304,32 @@ export class RealSnippetOperations implements SnippetOperations {
         return data.formatted ?? data.content ?? payload.content;
     }
 
-    async getTestCases(): Promise<TestCase[]> {
-        const res = await fetch(`${BASE_URL}/tests`, {
+    async getSnippetTests(snippetId: string): Promise<TestCase[]> {
+        const res = await fetch(`${BASE_URL}/snippets/tests/${snippetId}`, {
             headers: await authHeaders(this.getToken)
         })
         if (!res.ok) throw new Error("Error obteniendo test cases")
         return res.json()
     }
 
-    async postTestCase(testCase: Partial<TestCase>): Promise<TestCase> {
-        const res = await fetch(`${BASE_URL}/tests`, {
-            method: "POST",
+    async saveSnippetTest(snippetId: string, testCase: Partial<TestCase>): Promise<TestCase> {
+        const hasId = !!testCase.id
+        const url = hasId
+            ? `${BASE_URL}/snippets/tests/${snippetId}/${testCase.id}`
+            : `${BASE_URL}/snippets/tests/${snippetId}`
+        const method = hasId ? "PUT" : "POST"
+
+        const res = await fetch(url, {
+            method,
             headers: await authHeaders(this.getToken),
             body: JSON.stringify(testCase)
         })
-        if (!res.ok) throw new Error("Error creando test case")
+        if (!res.ok) throw new Error(hasId ? "Error actualizando test case" : "Error creando test case")
         return res.json()
     }
 
-    async removeTestCase(id: string): Promise<string> {
-        const res = await fetch(`${BASE_URL}/tests/${id}`, {
+    async removeSnippetTest(snippetId: string, id: string): Promise<string> {
+        const res = await fetch(`${BASE_URL}/snippets/tests/${snippetId}/${id}`, {
             method: "DELETE",
             headers: await authHeaders(this.getToken)
         })
@@ -331,15 +337,13 @@ export class RealSnippetOperations implements SnippetOperations {
         return id
     }
 
-    async testSnippet(testCase: Partial<TestCase>): Promise<TestCaseResult> {
-        const res = await fetch(`${BASE_URL}/tests/run`, {
+    async executeSnippetTest(snippetId: string, testId: string): Promise<SnippetTestExecution> {
+        const res = await fetch(`${BASE_URL}/snippets/tests/${snippetId}/${testId}/execute`, {
             method: "POST",
-            headers: await authHeaders(this.getToken),
-            body: JSON.stringify(testCase)
+            headers: await authHeaders(this.getToken)
         })
-        if (!res.ok) throw new Error("Error ejecutando test")
-        const data = await res.json()
-        return data.result as TestCaseResult
+        if (!res.ok) throw new Error("Error ejecutando test del snippet")
+        return res.json()
     }
 
     async deleteSnippet(id: string): Promise<string> {

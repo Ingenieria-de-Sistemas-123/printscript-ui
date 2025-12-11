@@ -9,10 +9,10 @@ import CloseIcon from '@mui/icons-material/Close';
 import {
     useUpdateSnippetById
 } from "../utils/queries.tsx";
-import {useFormatSnippet, useGetFileTypes, useGetSnippetById, useShareSnippet} from "../utils/queries.tsx";
+import {useFormatSnippet, useGetFileTypes, useGetSnippetById} from "../utils/queries.tsx";
 import {Bòx} from "../components/snippet-table/SnippetBox.tsx";
-import {BugReport, Delete, Download, Save, Share, UploadFile} from "@mui/icons-material";
-import {ShareSnippetModal} from "../components/snippet-detail/ShareSnippetModal.tsx";
+import {BugReport, Delete, Download, Save, UploadFile} from "@mui/icons-material";
+// import {ShareSnippetModal} from "../components/snippet-detail/ShareSnippetModal.tsx";
 import {TestSnippetModal} from "../components/snippet-test/TestSnippetModal.tsx";
 import {Snippet, getDefaultLanguageVersion, getFileLanguage} from "../utils/snippet.ts";
 import {SnippetExecution} from "./SnippetExecution.tsx";
@@ -63,7 +63,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
         ""
     );
     const [snippetMeta, setSnippetMeta] = useState<SnippetMetadata | undefined>(undefined)
-    const [shareModalOppened, setShareModalOppened] = useState(false)
+    // const [shareModalOppened, setShareModalOppened] = useState(false)
     const [deleteConfirmationModalOpen, setDeleteConfirmationModalOpen] = useState(false)
     const [testModalOpened, setTestModalOpened] = useState(false);
     const [updateError, setUpdateError] = useState<string | null>(null)
@@ -72,7 +72,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
 
     const {data: snippet, isLoading} = useGetSnippetById(id);
     const {data: fileTypes} = useGetFileTypes();
-    const {mutate: shareSnippet, isLoading: loadingShare} = useShareSnippet()
+    // const {mutate: shareSnippet, isLoading: loadingShare} = useShareSnippet()
     const {mutate: formatSnippet, isLoading: isFormatLoading, data: formatSnippetData} = useFormatSnippet()
     const {mutate: updateSnippet, isLoading: isUpdateSnippetLoading} = useUpdateSnippetById({
         onSuccess: () => {
@@ -105,14 +105,10 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
     }, [formatSnippetData])
 
 
-    async function handleShareSnippet(userId: string) {
-        shareSnippet({snippetId: id, userId})
-    }
-
     const handleLoadSnippetFromFile = (event: ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files
         if (!files || !files.length) {
-            createSnackbar('error', "Please select a file to upload")
+            createSnackbar('error', "Please select  file to upload")
             return
         }
         const file = files[0]
@@ -196,11 +192,11 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                 </>) : <>
                     <Typography variant="h4" fontWeight={"bold"}>{snippet?.name ?? "Snippet"}</Typography>
                     <Box display="flex" flexDirection="row" gap="8px" padding="8px">
-                        <Tooltip title={"Share"}>
-                            <IconButton onClick={() => setShareModalOppened(true)}>
-                                <Share/>
-                            </IconButton>
-                        </Tooltip>
+                        {/*<Tooltip title={"Share"}>*/}
+                        {/*    /!*<IconButton onClick={() => setShareModalOppened(true)}>*!/*/}
+                        {/*    /!*    <Share/>*!/*/}
+                        {/*    /!*</IconButton>*!/*/}
+                        {/*</Tooltip>*/}
                         <Tooltip title={"Test"}>
                             <IconButton onClick={() => setTestModalOpened(true)}>
                                 <BugReport/>
@@ -291,10 +287,10 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                 </>
             }
             <input hidden ref={fileInputRef} type="file" onChange={handleLoadSnippetFromFile}/>
-            <ShareSnippetModal loading={loadingShare || isLoading} open={shareModalOppened}
-                               onClose={() => setShareModalOppened(false)}
-                               onShare={handleShareSnippet}/>
-            <TestSnippetModal open={testModalOpened} onClose={() => setTestModalOpened(false)}/>
+            {/*<ShareSnippetModal loading={loadingShare || isLoading} open={shareModalOppened}*/}
+            {/*                   onClose={() => setShareModalOppened(false)}*/}
+            {/*                   onShare={handleShareSnippet}/>*/}
+            <TestSnippetModal open={testModalOpened} onClose={() => setTestModalOpened(false)} snippetId={snippet?.id}/>
             <DeleteConfirmationModal open={deleteConfirmationModalOpen} onClose={() => setDeleteConfirmationModalOpen(false)} id={snippet?.id ?? ""} setCloseDetails={handleCloseModal} />
             <Dialog open={!!updateError} onClose={() => setUpdateError(null)}>
                 <DialogTitle>Error actualizando snippet</DialogTitle>

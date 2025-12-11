@@ -1,41 +1,80 @@
-import {OutlinedInput} from "@mui/material";
-import {highlight, languages} from "prismjs";
-import Editor from "react-simple-code-editor";
-import {Bòx} from "../components/snippet-table/SnippetBox.tsx";
 import {useState} from "react";
+import {Box, Button, OutlinedInput} from "@mui/material";
+import {Bòx} from "../components/snippet-table/SnippetBox";
 
-export const SnippetExecution = () => {
-  // Here you should provide all the logic to connect to your sockets.
-  const [input, setInput] = useState<string>("")
-  const [output, setOutput] = useState<string[]>([]);
+type SnippetExecutionProps = {
+    snippetId: string;
+};
 
-  //TODO: get the output from the server
-  const code = output.join("\n")
+export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
+    const [input, setInput] = useState<string>("");
+    const [output, setOutput] = useState<string>("");
+    const [errorOutput, setErrorOutput] = useState<string>("");
+    const [isRunning, setIsRunning] = useState(false);
 
-  const handleEnter = (event: { key: string }) => {
-    if (event.key === 'Enter') {
-      //TODO: logic to send inputs to server
-      setOutput([...output, input])
-      setInput("")
-    }
-  };
+    const runSnippet = async () => {
+        try {
+            setIsRunning(true);
+            setOutput("");
+            setErrorOutput("");
+
+            const res = await fetch(`/api/snippets/${snippetId}/execute`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({input}),
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                setErrorOutput(`HTTP ${res.status}: ${text}`);
+                return;
+            }
+
+            const data: { exitCode: number; stdout: string; stderr: string } = await res.json();
+            setOutput(data.stdout ?? "");
+            if (data.stderr) setErrorOutput(data.stderr);
+        } catch (e: unknown) {
+            const err = e as Error;
+            setErrorOutput(err.message ?? "Error ejecutando snippet");
+        } finally {
+            setIsRunning(false);
+        }
+    };
+
+    const handleEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            void runSnippet();
+        }
+    };
+
+    const codeToShow: string = errorOutput || output || "";
 
     return (
-      <>
-        <Bòx flex={1} overflow={"none"} minHeight={200} bgcolor={'black'} color={'white'} code={code}>
-            <Editor
-              value={code}
-              padding={10}
-              onValueChange={(code) => setInput(code)}
-              highlight={(code) => highlight(code, languages.js, 'javascript')}
-              maxLength={1000}
-              style={{
-                  fontFamily: "monospace",
-                  fontSize: 17,
-              }}
-            />
-        </Bòx>
-        <OutlinedInput onKeyDown={handleEnter} value={input} onChange={e => setInput(e.target.value)} placeholder="Type here" fullWidth/>
-      </>
-    )
-}
+        <>
+            <Bòx
+                flex={1}
+                overflow={"none"}
+                minHeight={200}
+                bgcolor={"black"}
+                color={"white"}
+                code={codeToShow}
+            >
+                {/* si querés mostrarlo como texto simple */}
+                {/* <pre>{codeToShow}</pre> */}
+            </Bòx>
+            <Box mt={1} display="flex" gap={1}>
+                <OutlinedInput
+                    onKeyDown={handleEnter}
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    placeholder="Inputs"
+                    fullWidth
+                />
+                <Button variant="contained" disabled={isRunning} onClick={runSnippet}>
+                    Run
+                </Button>
+            </Box>
+        </>
+    );
+};

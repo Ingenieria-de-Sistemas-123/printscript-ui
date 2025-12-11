@@ -2,20 +2,22 @@ import {useState} from "react";
 import {TestCase} from "../../types/TestCase.ts";
 import {Autocomplete, Box, Button, Chip, TextField, Typography} from "@mui/material";
 import {BugReport, Delete, Save} from "@mui/icons-material";
-import {useTestSnippet} from "../../utils/queries.tsx";
+import {useExecuteSnippetTest} from "../../utils/queries.tsx";
 
 type TabPanelProps = {
     index: number;
     value: number;
+    snippetId: string;
     test?: TestCase;
     setTestCase: (test: Partial<TestCase>) => void;
     removeTestCase?: (testIndex: string) => void;
 }
 
-export const TabPanel = ({value, index, test: initialTest, setTestCase, removeTestCase}: TabPanelProps) => {
+export const TabPanel = ({value, index, snippetId, test: initialTest, setTestCase, removeTestCase}: TabPanelProps) => {
     const [testData, setTestData] = useState<Partial<TestCase> | undefined>(initialTest);
 
-    const {mutateAsync: testSnippet, data} = useTestSnippet();
+    const {mutateAsync: executeTest, data} = useExecuteSnippetTest(snippetId);
+    const isRunnable = !!testData?.id && !!snippetId;
 
 
     return (
@@ -88,11 +90,16 @@ export const TabPanel = ({value, index, test: initialTest, setTestCase, removeTe
                         <Button disabled={!testData?.name} onClick={() => setTestCase(testData ?? {})} variant={"outlined"} startIcon={<Save/>}>
                             Save
                         </Button>
-                        <Button onClick={() => testSnippet(testData ?? {})} variant={"contained"} startIcon={<BugReport/>}
-                                disableElevation>
+                        <Button
+                            onClick={() => testData?.id && executeTest(testData.id)}
+                            variant={"contained"}
+                            startIcon={<BugReport/>}
+                            disableElevation
+                            disabled={!isRunnable}
+                        >
                             Test
                         </Button>
-                        {data && (data === "success" ? <Chip label="Pass" color="success"/> :
+                        {data && (data.passed ? <Chip label="Pass" color="success"/> :
                             <Chip label="Fail" color="error"/>)}
                     </Box>
                 </Box>

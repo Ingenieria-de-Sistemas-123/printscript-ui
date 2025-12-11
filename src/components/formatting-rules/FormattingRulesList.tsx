@@ -25,13 +25,7 @@ const FormattingRulesList = () => {
     }, [data]);
 
     const handleValueChange = (rule: Rule, newValue: string | number) => {
-        const newRules = rules?.map(r => {
-            if (r.name === rule.name) {
-                return {...r, value: newValue}
-            } else {
-                return r;
-            }
-        })
+        const newRules = rules?.map(r => r.id === rule.id ? {...r, value: newValue} : r)
         setRules(newRules)
     };
 
@@ -41,13 +35,7 @@ const FormattingRulesList = () => {
     };
 
     const toggleRule = (rule: Rule) => () => {
-        const newRules = rules?.map(r => {
-            if (r.name === rule.name) {
-                return {...r, isActive: !r.isActive}
-            } else {
-                return r;
-            }
-        })
+        const newRules = rules?.map(r => r.id === rule.id ? {...r, active: !r.active} : r)
         setRules(newRules)
     }
 
@@ -60,13 +48,13 @@ const FormattingRulesList = () => {
                         rules?.map((rule) => {
                             return (
                                 <ListItem
-                                    key={rule.name}
+                                    key={rule.id}
                                     disablePadding
                                     style={{height: 40}}
                                 >
                                     <Checkbox
                                         edge="start"
-                                        checked={rule.isActive}
+                                        checked={rule.active}
                                         disableRipple
                                         onChange={toggleRule(rule)}
                                     />

@@ -108,7 +108,7 @@ jobs:
 
   deploy-dev:
     needs: publish
-    if: ${{ github.ref == 'refs/heads/dev' }}
+    if: needs.publish.result == 'success' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to dev server
@@ -121,11 +121,21 @@ jobs:
           envs: VM_PROJECT_PATH,GHCR_USER,GHCR_TOKEN,IMAGE_REPO,DEPLOY_TAG
           script: |
             set -euo pipefail
-            echo "Deploying ${IMAGE_REPO}:${DEPLOY_TAG} to dev"
+            echo "[deploy-dev] Using image: ${IMAGE_REPO}:${DEPLOY_TAG}"
             cd "${VM_PROJECT_PATH}"
-            docker login ghcr.io -u "${GHCR_USER}" -p "${GHCR_TOKEN}"
-            docker compose pull printscript-ui
-            docker compose up -d --no-deps printscript-ui
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+            COMPOSE_FILE="docker-compose.dev.yml"
+            ENV_FILE=".env.dev"
+            if [ ! -f "$COMPOSE_FILE" ]; then
+              echo "::error file=$COMPOSE_FILE::Compose file not found"
+              exit 1
+            fi
+            ENV_FLAG=""
+            if [ -f "$ENV_FILE" ]; then
+              ENV_FLAG="--env-file $ENV_FILE"
+            fi
+            docker compose -f "$COMPOSE_FILE" $ENV_FLAG pull printscript-ui
+            docker compose -f "$COMPOSE_FILE" $ENV_FLAG up -d --no-deps printscript-ui
             docker image prune -f --filter "dangling=true"
         env:
           VM_PROJECT_PATH: ${{ secrets.DEPLOY_WORKDIR_DEV }}
@@ -136,7 +146,7 @@ jobs:
 
   deploy-prod:
     needs: publish
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: needs.publish.result == 'success' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to prod server
@@ -149,15 +159,16 @@ jobs:
           envs: PROD_DEPLOY_WORKDIR,PROD_GHCR_USER,PROD_GHCR_TOKEN,IMAGE_REPO,DEPLOY_TAG
           script: |
             set -euo pipefail
-            echo "[deploy-prod] Deploying ${IMAGE_REPO}:${DEPLOY_TAG}"
+            echo "[deploy-prod] Using image: ${IMAGE_REPO}:${DEPLOY_TAG}"
             cd "${PROD_DEPLOY_WORKDIR}"
-            echo "[deploy-prod] Logging into ghcr.io"
-            docker login ghcr.io -u "${PROD_GHCR_USER}" -p "${PROD_GHCR_TOKEN}"
-            echo "[deploy-prod] docker compose pull printscript-ui"
-            docker compose pull printscript-ui
-            echo "[deploy-prod] docker compose up -d --no-deps printscript-ui"
-            docker compose up -d --no-deps printscript-ui
-            echo "[deploy-prod] Cleaning dangling images"
+            echo "$PROD_GHCR_TOKEN" | docker login ghcr.io -u "${PROD_GHCR_USER}" --password-stdin
+            COMPOSE_FILE="docker-compose.yml"
+            if [ ! -f "$COMPOSE_FILE" ]; then
+              echo "::error file=$COMPOSE_FILE::Compose file not found"
+              exit 1
+            fi
+            docker compose -f "$COMPOSE_FILE" pull printscript-ui
+            docker compose -f "$COMPOSE_FILE" up -d --no-deps printscript-ui
             docker image prune -f --filter "dangling=true"
         env:
           PROD_DEPLOY_WORKDIR: ${{ secrets.PROD_DEPLOY_WORKDIR }}

@@ -11,6 +11,9 @@ jobs:
   publish:
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    outputs:
+      image_repo: ${{ steps.publish_info.outputs.image_repo }}
+      deploy_tag: ${{ steps.publish_info.outputs.deploy_tag }}
 
     permissions:
       contents: read
@@ -93,3 +96,72 @@ jobs:
             ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:latest
             ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:${{ steps.tag.outputs.value }}
             ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:${{ steps.tag.outputs.branch }}
+
+      - name: Expose publish outputs
+        id: publish_info
+        env:
+          OWNER: ${{ steps.img.outputs.owner }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          echo "image_repo=ghcr.io/${OWNER}/printscript-ui" >> "$GITHUB_OUTPUT"
+          echo "deploy_tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+  deploy-dev:
+    needs: publish
+    if: ${{ github.ref == 'refs/heads/dev' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to dev server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          envs: VM_PROJECT_PATH,GHCR_USER,GHCR_TOKEN,IMAGE_REPO,DEPLOY_TAG
+          script: |
+            set -euo pipefail
+            echo "Deploying ${IMAGE_REPO}:${DEPLOY_TAG} to dev"
+            cd "${VM_PROJECT_PATH}"
+            docker login ghcr.io -u "${GHCR_USER}" -p "${GHCR_TOKEN}"
+            docker compose pull printscript-ui
+            docker compose up -d --no-deps printscript-ui
+            docker image prune -f --filter "dangling=true"
+        env:
+          VM_PROJECT_PATH: ${{ secrets.DEPLOY_WORKDIR_DEV }}
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          IMAGE_REPO: ${{ needs.publish.outputs.image_repo }}
+          DEPLOY_TAG: ${{ needs.publish.outputs.deploy_tag }}
+
+  deploy-prod:
+    needs: publish
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to prod server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_VM_HOST }}
+          username: ${{ secrets.PROD_VM_USER }}
+          key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          script_stop: true
+          envs: PROD_DEPLOY_WORKDIR,PROD_GHCR_USER,PROD_GHCR_TOKEN,IMAGE_REPO,DEPLOY_TAG
+          script: |
+            set -euo pipefail
+            echo "[deploy-prod] Deploying ${IMAGE_REPO}:${DEPLOY_TAG}"
+            cd "${PROD_DEPLOY_WORKDIR}"
+            echo "[deploy-prod] Logging into ghcr.io"
+            docker login ghcr.io -u "${PROD_GHCR_USER}" -p "${PROD_GHCR_TOKEN}"
+            echo "[deploy-prod] docker compose pull printscript-ui"
+            docker compose pull printscript-ui
+            echo "[deploy-prod] docker compose up -d --no-deps printscript-ui"
+            docker compose up -d --no-deps printscript-ui
+            echo "[deploy-prod] Cleaning dangling images"
+            docker image prune -f --filter "dangling=true"
+        env:
+          PROD_DEPLOY_WORKDIR: ${{ secrets.PROD_DEPLOY_WORKDIR }}
+          PROD_GHCR_USER: ${{ secrets.PROD_GHCR_USER }}
+          PROD_GHCR_TOKEN: ${{ secrets.PROD_GHCR_TOKEN }}
+          IMAGE_REPO: ${{ needs.publish.outputs.image_repo }}
+          DEPLOY_TAG: ${{ needs.publish.outputs.deploy_tag }}

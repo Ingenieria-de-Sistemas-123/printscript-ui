@@ -9,15 +9,19 @@ import {queryClient} from "../../App.tsx";
 type TestSnippetModalProps = {
     open: boolean
     onClose: () => void
+    snippetId?: string
 }
 
-export const TestSnippetModal = ({open, onClose}: TestSnippetModalProps) => {
+export const TestSnippetModal = ({open, onClose, snippetId}: TestSnippetModalProps) => {
     const [value, setValue] = useState(0);
 
-    const {data: testCases} = useGetTestCases();
-    const {mutateAsync: postTestCase} = usePostTestCase();
-    const {mutateAsync: removeTestCase} = useRemoveTestCase({
-        onSuccess: () => queryClient.invalidateQueries('testCases')
+    const isReady = !!snippetId;
+    const {data: testCases} = useGetTestCases(snippetId);
+    const {mutateAsync: postTestCase} = usePostTestCase(snippetId ?? "", {
+        onSuccess: () => queryClient.invalidateQueries(['testCases', snippetId])
+    });
+    const {mutateAsync: removeTestCase} = useRemoveTestCase(snippetId ?? "", {
+        onSuccess: () => queryClient.invalidateQueries(['testCases', snippetId])
     });
 
     const handleChange = (_: SyntheticEvent, newValue: number) => {
@@ -28,6 +32,10 @@ export const TestSnippetModal = ({open, onClose}: TestSnippetModalProps) => {
         <ModalWrapper open={open} onClose={onClose}>
             <Typography variant={"h5"}>Test snippet</Typography>
             <Divider/>
+            {!isReady && (
+                <Typography mt={2}>Cargá primero el snippet para gestionar sus tests.</Typography>
+            )}
+            {isReady && (
             <Box mt={2} display="flex">
                 <Tabs
                     orientation="vertical"
@@ -38,22 +46,31 @@ export const TestSnippetModal = ({open, onClose}: TestSnippetModalProps) => {
                     sx={{borderRight: 1, borderColor: 'divider'}}
                 >
                     {testCases?.map((testCase) => (
-                        <Tab label={testCase.name}/>
+                        <Tab key={testCase.id} label={testCase.name}/>
                     ))}
-                    <IconButton disableRipple onClick={() => setValue((testCases?.length ?? 0) + 1)}>
+                    <IconButton disableRipple onClick={() => setValue((testCases?.length ?? 0) + 1)} disabled={!snippetId}>
                         <AddRounded />
                     </IconButton>
                 </Tabs>
                 {testCases?.map((testCase, index) => (
-                    <TabPanel index={index} value={value} test={testCase}
-                              setTestCase={(tc) => postTestCase(tc)}
-                              removeTestCase={(i) => removeTestCase(i)}
+                    <TabPanel
+                        key={testCase.id}
+                        snippetId={snippetId ?? ""}
+                        index={index}
+                        value={value}
+                        test={testCase}
+                        setTestCase={(tc) => postTestCase(tc)}
+                        removeTestCase={(i) => removeTestCase(i)}
                     />
                 ))}
-                <TabPanel index={(testCases?.length ?? 0) + 1} value={value}
-                          setTestCase={(tc) => postTestCase(tc)}
+                <TabPanel
+                    snippetId={snippetId ?? ""}
+                    index={(testCases?.length ?? 0) + 1}
+                    value={value}
+                    setTestCase={(tc) => postTestCase(tc)}
                 />
             </Box>
+            )}
         </ModalWrapper>
     )
 }

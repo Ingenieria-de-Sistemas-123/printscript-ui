@@ -3,10 +3,13 @@ import {Snippet} from "../utils/snippet";
 export type SnippetRelation = 'OWNER' | 'SHARED';
 
 export type SnippetLintError = {
-  rule?: string | null;
-  line?: number | null;
-  column?: number | null;
+  rule: string;
   message: string;
+  severity: "ERROR" | "WARNING";
+  startLine: number;
+  startCol: number;
+  endLine: number;
+  endCol: number;
 };
 
 export type SnippetTest = {
@@ -53,4 +56,12 @@ export type FormatSnippetPayload = {
   content: string;
   language: string;
   version: string;
+  check?: boolean;
+};
+
+export type AnalyzeIssue = SnippetLintError;
+
+export type AnalyzeResponse = {
+  issues: AnalyzeIssue[];
+  raw?: string;
 };

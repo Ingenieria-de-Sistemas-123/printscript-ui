@@ -25,5 +25,3 @@ const App = () => {
 };
 
 export default withAuthenticationRequired(App);
-
-// Si querés sin login global, exportá App en vez de withAuthenticationRequired(App)

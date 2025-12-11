@@ -4,10 +4,9 @@ import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snipp
 import autoBind from 'auto-bind'
 import {PaginatedUsers} from "../users.ts";
 import {TestCase} from "../../types/TestCase.ts";
-import {TestCaseResult} from "../queries.tsx";
 import {FileType} from "../../types/FileType.ts";
 import {Rule} from "../../types/Rule.ts";
-
+import {FormatSnippetPayload, SnippetTestExecution} from "../../types/snippetDetails.ts";
 const DELAY: number = 1000
 
 export class FakeSnippetOperations implements SnippetOperations {
@@ -73,33 +72,36 @@ export class FakeSnippetOperations implements SnippetOperations {
         })
     }
 
-    formatSnippet(snippetContent: string): Promise<string> {
+  formatSnippet(payload: FormatSnippetPayload): Promise<string> {
+    return new Promise(resolve => {
+      setTimeout(
+          () => resolve(this.fakeStore.formatSnippet(payload.content)),
+          DELAY
+      );
+    });
+  }
+
+    getSnippetTests(snippetId: string): Promise<TestCase[]> {
         return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.formatSnippet(snippetContent)), DELAY)
+            setTimeout(() => resolve(this.fakeStore.getTestCases(snippetId)), DELAY)
         })
     }
 
-    getTestCases(): Promise<TestCase[]> {
+    saveSnippetTest(snippetId: string, testCase: TestCase): Promise<TestCase> {
         return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.getTestCases()), DELAY)
+            setTimeout(() => resolve(this.fakeStore.upsertTestCase(snippetId, testCase)), DELAY)
         })
     }
 
-    postTestCase(testCase: TestCase): Promise<TestCase> {
+    removeSnippetTest(snippetId: string, id: string): Promise<string> {
         return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.postTestCase(testCase)), DELAY)
+            setTimeout(() => resolve(this.fakeStore.removeTestCase(snippetId, id)), DELAY)
         })
     }
 
-    removeTestCase(id: string): Promise<string> {
+    executeSnippetTest(snippetId: string, testId: string): Promise<SnippetTestExecution> {
         return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.removeTestCase(id)), DELAY)
-        })
-    }
-
-    testSnippet(): Promise<TestCaseResult> {
-        return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.testSnippet()), DELAY)
+            setTimeout(() => resolve(this.fakeStore.executeSnippetTest(snippetId, testId)), DELAY)
         })
     }
 
@@ -121,9 +123,21 @@ export class FakeSnippetOperations implements SnippetOperations {
         })
     }
 
-    modifyLintingRule(newRules: Rule[]): Promise<Rule[]> {
-        return new Promise(resolve => {
-            setTimeout(() => resolve(this.fakeStore.modifyLintingRule(newRules)), DELAY)
-        })
-    }
+  modifyLintingRule(newRules: Rule[]): Promise<Rule[]> {
+    return new Promise(resolve => {
+      setTimeout(() => resolve(this.fakeStore.modifyLintingRule(newRules)), DELAY)
+    })
+  }
+
+  formatAllSnippets(): Promise<void> {
+    return new Promise(resolve => {
+      setTimeout(() => resolve(), DELAY);
+    });
+  }
+
+  lintAllSnippets(): Promise<void> {
+    return new Promise(resolve => {
+      setTimeout(() => resolve(), DELAY);
+    });
+  }
 }

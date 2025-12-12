@@ -1,41 +1,68 @@
-import {OutlinedInput} from "@mui/material";
-import {highlight, languages} from "prismjs";
-import Editor from "react-simple-code-editor";
-import {Bòx} from "../components/snippet-table/SnippetBox.tsx";
-import {useState} from "react";
+import {Box, Button, TextField} from "@mui/material";
+import { useState } from "react";
+import { Bòx } from "../components/snippet-table/SnippetBox";
+import { useExecuteSnippet } from "../utils/queries";
 
-export const SnippetExecution = () => {
-    // Here you should provide all the logic to connect to your sockets.
-    const [input, setInput] = useState<string>("")
-    const [output, setOutput] = useState<string[]>([]);
+type SnippetExecutionProps = {
+    snippetId: string;
+};
 
-    //TODO: get the output from the server
-    const code = output.join("\n")
+export const SnippetExecution = ({ snippetId }: SnippetExecutionProps) => {
+    const [input, setInput] = useState("");
 
-    const handleEnter = (event: { key: string }) => {
-        if (event.key === 'Enter') {
-            //TODO: logic to send inputs to server
-            setOutput([...output, input])
-            setInput("")
+    const {
+        mutate: runSnippet,
+        data,
+        error,
+        isLoading: running,
+    } = useExecuteSnippet(snippetId);
+
+    const run = () => {
+        runSnippet({ input });
+    };
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            run();
         }
     };
 
+
+    const stdout = data?.stdout ?? "";
+    const stderr = error?.message ?? data?.stderr ?? "";
+
+    const outputToShow = stderr && stderr.trim().length > 0 ? stderr : stdout;
+
     return (
         <>
-            <Bòx flex={1} overflow={"none"} minHeight={200} bgcolor={'black'} color={'white'} code={code}>
-                <Editor
-                    value={code}
-                    padding={10}
-                    onValueChange={(code) => setInput(code)}
-                    highlight={(code) => highlight(code, languages.js, 'javascript')}
-                    maxLength={1000}
-                    style={{
-                        fontFamily: "monospace",
-                        fontSize: 17,
-                    }}
-                />
+            <Bòx
+                flex={1}
+                overflow={"none"}
+                minHeight={200}
+                bgcolor={"black"}
+                color={"white"}
+                code={outputToShow}
+            >
+        <pre style={{ margin: 0, padding: 10, whiteSpace: "pre-wrap" }}>
+          {outputToShow}
+        </pre>
             </Bòx>
-            <OutlinedInput onKeyDown={handleEnter} value={input} onChange={e => setInput(e.target.value)} placeholder="Type here" fullWidth/>
+
+            <Box mt={1} display="flex" gap={1}>
+                <TextField
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={"Inputs (una línea por cada readInput())"}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    onKeyDown={handleKeyDown}
+                />
+                <Button variant="contained" disabled={running} onClick={run}>
+                    Run
+                </Button>
+            </Box>
         </>
-    )
-}
+    );
+};

@@ -15,7 +15,7 @@ export interface SnippetOperations {
 
     updateSnippetById(id: string, updateSnippet: UpdateSnippet): Promise<Snippet>
 
-  getUserFriends(): Promise<Friends[]>
+    getUserFriends(): Promise<Friends[]>
 
     shareSnippet(snippetId: string,userId: string): Promise<Snippet>
 

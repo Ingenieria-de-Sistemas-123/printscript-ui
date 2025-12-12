@@ -312,7 +312,7 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async getSnippetTests(snippetId: string): Promise<TestCase[]> {
-        const res = await fetch(`${BASE_URL}/snippets/tests/${snippetId}`, {
+        const res = await fetch(`${BASE_URL}/snippets/${snippetId}/tests`, {
             headers: await authHeaders(this.getToken)
         })
         if (!res.ok) throw new Error("Error obteniendo test cases")
@@ -322,8 +322,8 @@ export class RealSnippetOperations implements SnippetOperations {
     async saveSnippetTest(snippetId: string, testCase: Partial<TestCase>): Promise<TestCase> {
         const hasId = !!testCase.id
         const url = hasId
-            ? `${BASE_URL}/snippets/tests/${snippetId}/${testCase.id}`
-            : `${BASE_URL}/snippets/tests/${snippetId}`
+            ? `${BASE_URL}/snippets/${snippetId}/tests/${testCase.id}`
+            : `${BASE_URL}/snippets/${snippetId}/tests`
         const method = hasId ? "PUT" : "POST"
 
         const res = await fetch(url, {
@@ -336,7 +336,7 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async removeSnippetTest(snippetId: string, id: string): Promise<string> {
-        const res = await fetch(`${BASE_URL}/snippets/tests/${snippetId}/${id}`, {
+        const res = await fetch(`${BASE_URL}/snippets/${snippetId}/tests/${id}`, {
             method: "DELETE",
             headers: await authHeaders(this.getToken)
         })
@@ -345,7 +345,7 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async executeSnippetTest(snippetId: string, testId: string): Promise<SnippetTestExecution> {
-        const res = await fetch(`${BASE_URL}/snippets/tests/${snippetId}/${testId}/execute`, {
+        const res = await fetch(`${BASE_URL}/snippets/${snippetId}/tests/${testId}/execute`, {
             method: "POST",
             headers: await authHeaders(this.getToken)
         })
@@ -410,5 +410,18 @@ export class RealSnippetOperations implements SnippetOperations {
             const text = await res.text().catch(() => "");
             throw new Error(`Error lanzando lint masivo: ${res.status} ${text}`);
         }
+    }
+
+    async executeSnippet(snippetId: string, input?: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+        const res = await fetch(`${BASE_URL}/snippets/${snippetId}/execute`, {
+            method: "POST",
+            headers: await authHeaders(this.getToken),
+            body: JSON.stringify({ input: input ?? "" }),
+        })
+        if (!res.ok) {
+            const txt = await res.text().catch(() => "")
+            throw new Error(`Error ejecutando snippet: ${res.status} ${txt}`)
+        }
+        return res.json()
     }
 }

@@ -7,7 +7,6 @@ import {Drawer} from "@mui/material";
 import {useGetSnippets} from "../utils/queries.tsx";
 import {usePaginationContext} from "../contexts/paginationContext.tsx";
 import useDebounce from "../hooks/useDebounce.ts";
-import {SnippetTableFilters} from "../components/snippet-table/SnippetTable.tsx";
 import {SnippetListFilters} from "../types/snippetDetails.ts";
 
 const HomeScreen = () => {
@@ -15,30 +14,24 @@ const HomeScreen = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedName, setDebouncedName] = useState<string | undefined>(undefined);
     const [snippetId, setSnippetId] = useState<string | null>(null)
-    const [tableFilters, setTableFilters] = useState<SnippetTableFilters>({
+    const [filters, setFilters] = useState<SnippetListFilters>({
         relation: 'all',
         language: 'all',
-        validity: 'all',
-        sortBy: 'name',
-        sortDir: 'asc'
+        sortBy: 'updated_at',
+        sortDir: 'desc'
     })
     const {page, page_size, count, handleChangeCount} = usePaginationContext()
     const filtersPayload = useMemo(() => {
         const payload: SnippetListFilters & { sortBy?: string; sortDir?: 'asc' | 'desc' } = {}
         if (debouncedName) payload.name = debouncedName
-        if (tableFilters.language !== 'all') payload.language = tableFilters.language
-        if (tableFilters.relation !== 'all') payload.relation = tableFilters.relation
-        if (tableFilters.validity !== 'all') payload.valid = tableFilters.validity === 'valid'
-        if (tableFilters.sortBy) payload.sortBy = tableFilters.sortBy
-        if (tableFilters.sortDir) payload.sortDir = tableFilters.sortDir
+        if (filters.language && filters.language !== 'all') payload.language = filters.language
+        if (filters.relation && filters.relation !== 'all') payload.relation = filters.relation
+        if (typeof filters.valid === 'boolean') payload.valid = filters.valid
+        if (filters.sortBy) payload.sortBy = filters.sortBy
+        if (filters.sortDir) payload.sortDir = filters.sortDir
         return payload
-    }, [debouncedName, tableFilters])
-    const serializedFilters = useMemo(() => {
-        const entries = Object.entries(filtersPayload).filter(([, value]) => value !== undefined && value !== null)
-        if (!entries.length) return undefined
-        return JSON.stringify(Object.fromEntries(entries))
-    }, [filtersPayload])
-    const {data, isLoading} = useGetSnippets(page, page_size, serializedFilters)
+    }, [debouncedName, filters])
+    const {data, isLoading} = useGetSnippets(page, page_size, filtersPayload)
 
     useEffect(() => {
         if (data?.count && data.count != count) {
@@ -63,15 +56,16 @@ const HomeScreen = () => {
         }, [searchTerm], 800
     );
 
-    const handleFilterChange = (updates: Partial<SnippetTableFilters>) => {
-        setTableFilters(prev => ({...prev, ...updates}))
-    }
-
     return (
         <>
-            <SnippetTable loading={isLoading} handleClickSnippet={setSnippetId} snippets={data?.snippets}
-                          searchValue={searchTerm} onSearchChange={setSearchTerm} filters={tableFilters}
-                          onFilterChange={handleFilterChange}/>
+            <SnippetTable
+                loading={isLoading}
+                handleClickSnippet={setSnippetId}
+                snippets={data?.snippets}
+                handleSearchSnippet={setSearchTerm}
+                filters={filters}
+                onChangeFilters={setFilters}
+            />
             <Drawer open={!!snippetId} anchor={"right"} onClose={handleCloseModal}>
                 {snippetId && <SnippetDetail handleCloseModal={handleCloseModal} id={snippetId}/>}
             </Drawer>

@@ -1,6 +1,5 @@
 import { useMutation, UseMutationResult, useQuery } from "react-query";
 import { CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet } from "./snippet.ts";
-import { PaginatedUsers } from "./users.ts";
 import { FileType } from "../types/FileType.ts";
 import { RealSnippetOperations } from "./impl/realSnippetOperations.ts";
 import { Rule } from "../types/Rule.ts";
@@ -8,9 +7,12 @@ import { useAuth0 } from "@auth0/auth0-react";
 import {
     FormatSnippetPayload,
     SnippetDetails,
-    //SnippetListFilters,
-    SnippetTestExecution,
+    SnippetListFilters,
+    SnippetTestExecution
 } from "../types/snippetDetails.ts";
+import {Friends} from "./users.ts";
+
+export type TestCaseResult = "success" | "fail";
 import { TestCase } from "../types/TestCase.ts";
 
 export const useSnippetsOperations = () => {
@@ -25,7 +27,7 @@ export const useSnippetsOperations = () => {
     return new RealSnippetOperations(getToken);
 };
 
-/*type PaginatedSnippetDetails = Omit<PaginatedSnippets, "snippets"> & { snippets: SnippetDetails[] };
+type PaginatedSnippetDetails = Omit<PaginatedSnippets, "snippets"> & { snippets: SnippetDetails[] };
 
 export const useGetSnippets = (
     page: number = 0,
@@ -37,20 +39,10 @@ export const useGetSnippets = (
         ["listSnippets", page, pageSize, filters],
         async () => {
             const serializedFilters = filters ? JSON.stringify(filters) : undefined;
-            const response = await snippetOperations.listSnippetDescriptors(
-                page,
-                pageSize,
-                serializedFilters
-            );
+            const response = await snippetOperations.listSnippetDescriptors(page, pageSize, serializedFilters);
             return response as PaginatedSnippetDetails;
         }
     );
-};*/
-
-export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetName?: string) => {
-    const snippetOperations = useSnippetsOperations()
-
-    return useQuery<PaginatedSnippets, Error>(['listSnippets', page,pageSize,snippetName], () => snippetOperations.listSnippetDescriptors(page, pageSize,snippetName));
 };
 
 export const useGetSnippetById = (id: string) => {
@@ -91,19 +83,20 @@ export const useUpdateSnippetById = ({
     );
 };
 
-export const useGetUsers = (name: string = "", page: number = 0, pageSize: number = 10) => {
+export const useGetUsers = () => {
     const snippetOperations = useSnippetsOperations();
-    return useQuery<PaginatedUsers, Error>(["users", name, page, pageSize], () =>
-        snippetOperations.getUserFriends(name, page, pageSize)
+    return useQuery<Friends[], Error>(
+        ["users"],
+        () => snippetOperations.getUserFriends()
     );
 };
 
-// export const useShareSnippet = () => {
-//     const snippetOperations = useSnippetsOperations();
-//     return useMutation<Snippet, Error, { snippetId: string; userId: string }>(
-//         ({ snippetId, userId }) => snippetOperations.shareSnippet(snippetId, userId)
-//     );
-// };
+export const useShareSnippet = () => {
+    const snippetOperations = useSnippetsOperations();
+    return useMutation<Snippet, Error, { snippetId: string; userId: string }>(
+        ({ snippetId, userId }) => snippetOperations.shareSnippet(snippetId, userId)
+    );
+};
 
 export const useGetFormatRules = () => {
     const snippetOperations = useSnippetsOperations();

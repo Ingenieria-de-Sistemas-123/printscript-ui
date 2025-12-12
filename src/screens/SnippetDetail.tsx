@@ -4,22 +4,23 @@ import {highlight, languages} from "prismjs";
 import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
 import "prismjs/themes/prism-okaidia.css";
-import {Alert, Box, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Tooltip, Typography, Button} from "@mui/material";
+import {Alert, Box, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Tooltip, Typography, Button, TextField, MenuItem} from "@mui/material";
 import CloseIcon from '@mui/icons-material/Close';
 import {
     useUpdateSnippetById
 } from "../utils/queries.tsx";
 import {useFormatSnippet, useGetFileTypes, useGetSnippetById} from "../utils/queries.tsx";
 import {Bòx} from "../components/snippet-table/SnippetBox.tsx";
-import {BugReport, Delete, Download, Save, UploadFile} from "@mui/icons-material";
-// import {ShareSnippetModal} from "../components/snippet-detail/ShareSnippetModal.tsx";
+import {BugReport, Delete, Download, Save, UploadFile, Share} from "@mui/icons-material";
+import {ShareSnippetModal} from "../components/snippet-detail/ShareSnippetModal.tsx";
 import {TestSnippetModal} from "../components/snippet-test/TestSnippetModal.tsx";
-import {Snippet, getDefaultLanguageVersion, getFileLanguage} from "../utils/snippet.ts";
+import {Snippet, getDefaultLanguageVersion, getFileLanguage, getLanguageVersions} from "../utils/snippet.ts";
 import {SnippetExecution} from "./SnippetExecution.tsx";
 import ReadMoreIcon from '@mui/icons-material/ReadMore';
 import {queryClient} from "../App.tsx";
 import {DeleteConfirmationModal} from "../components/snippet-detail/DeleteConfirmationModal.tsx";
 import {useSnackbarContext} from "../contexts/snackbarContext.tsx";
+import {useShareSnippet} from "../utils/queries.tsx";
 
 type SnippetDetailProps = {
     id: string;
@@ -63,7 +64,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
         ""
     );
     const [snippetMeta, setSnippetMeta] = useState<SnippetMetadata | undefined>(undefined)
-    // const [shareModalOppened, setShareModalOppened] = useState(false)
+    const [shareModalOppened, setShareModalOppened] = useState(false)
     const [deleteConfirmationModalOpen, setDeleteConfirmationModalOpen] = useState(false)
     const [testModalOpened, setTestModalOpened] = useState(false);
     const [updateError, setUpdateError] = useState<string | null>(null)
@@ -72,7 +73,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
 
     const {data: snippet, isLoading} = useGetSnippetById(id);
     const {data: fileTypes} = useGetFileTypes();
-    // const {mutate: shareSnippet, isLoading: loadingShare} = useShareSnippet()
+    const {mutate: shareSnippet, isLoading: loadingShare} = useShareSnippet()
     const {mutate: formatSnippet, isLoading: isFormatLoading, data: formatSnippetData} = useFormatSnippet()
     const {mutate: updateSnippet, isLoading: isUpdateSnippetLoading} = useUpdateSnippetById({
         onSuccess: () => {
@@ -158,6 +159,19 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
             createSnackbar('error', "Name and language are required to update a snippet")
             return
         }
+        const resolvedVersion = snippetMeta?.version
+            ?? snippet?.version
+            ?? getDefaultLanguageVersion(fileTypes ?? [], language)
+        if (!resolvedVersion) {
+            createSnackbar('error', "Version is required to update a snippet")
+            return
+        }
+        if (!snippetMeta?.version && resolvedVersion) {
+            setSnippetMeta(prev => ({
+                ...prev,
+                version: resolvedVersion,
+            }))
+        }
         updateSnippet({
             id: id,
             updateSnippet: {
@@ -165,11 +179,60 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                 language,
                 content: code,
                 description: snippetMeta?.description ?? snippet?.description,
-                version: snippetMeta?.version ?? snippet?.version,
+                version: resolvedVersion,
                 extension: snippetMeta?.extension ?? snippet?.extension,
             }
         })
     }
+
+    const handleShareSnippet = (userId: string) => {
+        if (!snippet?.id) {
+            createSnackbar('error', "Snippet no disponible todavía");
+            return;
+        }
+        shareSnippet(
+            {snippetId: snippet.id, userId},
+            {
+                onSuccess: () => {
+                    createSnackbar('success', "Snippet compartido");
+                    setShareModalOppened(false);
+                },
+                onError: (error) => {
+                    createSnackbar('error', error.message || "Error compartiendo snippet");
+                }
+            }
+        )
+    }
+
+    const handleMetaChange = (field: keyof SnippetMetadata, value: string) => {
+        setSnippetMeta(prev => ({
+            ...(prev ?? {}),
+            [field]: value,
+        }))
+    }
+
+    const handleLanguageChange = (value: string) => {
+        const defaultVersion = getDefaultLanguageVersion(fileTypes ?? [], value)
+        const fileType = fileTypes?.find(type => type.language === value)
+        setSnippetMeta(prev => ({
+            ...(prev ?? {}),
+            language: value,
+            version: defaultVersion ?? prev?.version,
+            extension: fileType?.extension ?? prev?.extension,
+        }))
+    }
+
+    const resolvedLanguage = snippetMeta?.language ?? snippet?.language
+    const languageValue = resolvedLanguage ?? ""
+    const languageOptions = fileTypes ?? []
+    const versionOptions = getLanguageVersions(fileTypes ?? [], resolvedLanguage)
+    const versionValue = snippetMeta?.version ?? snippet?.version ?? versionOptions[0] ?? ""
+    const descriptionValue = snippetMeta?.description ?? snippet?.description ?? ""
+    const formatLanguage = resolvedLanguage ?? "printscript"
+    const formatVersion = snippetMeta?.version
+        ?? snippet?.version
+        ?? getDefaultLanguageVersion(fileTypes ?? [], formatLanguage)
+        ?? "1.0"
 
     const isSnippetDirty = snippet ? (
         snippet.content !== code ||
@@ -192,11 +255,11 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                 </>) : <>
                     <Typography variant="h4" fontWeight={"bold"}>{snippet?.name ?? "Snippet"}</Typography>
                     <Box display="flex" flexDirection="row" gap="8px" padding="8px">
-                        {/*<Tooltip title={"Share"}>*/}
-                        {/*    /!*<IconButton onClick={() => setShareModalOppened(true)}>*!/*/}
-                        {/*    /!*    <Share/>*!/*/}
-                        {/*    /!*</IconButton>*!/*/}
-                        {/*</Tooltip>*/}
+                        <Tooltip title={"Share"}>
+                            <IconButton aria-label="Share" onClick={() => setShareModalOppened(true)}>
+                                <Share/>
+                            </IconButton>
+                        </Tooltip>
                         <Tooltip title={"Test"}>
                             <IconButton onClick={() => setTestModalOpened(true)}>
                                 <BugReport/>
@@ -219,8 +282,8 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                                 onClick={() =>
                                     formatSnippet({
                                         content: code,
-                                        language: snippetMeta?.language ?? snippet?.language ?? "printscript",
-                                        version: snippetMeta?.version ?? snippet?.version ?? "1.0",
+                                        language: formatLanguage,
+                                        version: formatVersion,
                                         check: false,
                                     })
                                 }
@@ -240,6 +303,43 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                             </IconButton>
                         </Tooltip>
                     </Box>
+                    <Box display="flex" flexWrap="wrap" gap={2} my={2}>
+                        <TextField
+                            label="Language"
+                            value={languageValue}
+                            onChange={(e) => handleLanguageChange(e.target.value)}
+                            select
+                            sx={{minWidth: 200}}
+                        >
+                            {languageOptions.map((languageOption) => (
+                                <MenuItem key={languageOption.language} value={languageOption.language}>
+                                    {languageOption.language}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                        <TextField
+                            label="Version"
+                            value={versionValue}
+                            onChange={(e) => handleMetaChange("version", e.target.value)}
+                            select={versionOptions.length > 0}
+                            sx={{minWidth: 200}}
+                        >
+                            {versionOptions.length > 0 && versionOptions.map((version) => (
+                                <MenuItem key={version} value={version}>
+                                    {version}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                    </Box>
+                    <TextField
+                        label="Description"
+                        value={descriptionValue}
+                        onChange={(e) => handleMetaChange("description", e.target.value)}
+                        multiline
+                        minRows={3}
+                        fullWidth
+                        sx={{mb: 2}}
+                    />
                     <Box display={"flex"} gap={2}>
                         <Bòx flex={1} height={"fit-content"} overflow={"none"} minHeight={"500px"} bgcolor={'black'} color={'white'} code={code}>
                             <Editor
@@ -287,9 +387,9 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                 </>
             }
             <input hidden ref={fileInputRef} type="file" onChange={handleLoadSnippetFromFile}/>
-            {/*<ShareSnippetModal loading={loadingShare || isLoading} open={shareModalOppened}*/}
-            {/*                   onClose={() => setShareModalOppened(false)}*/}
-            {/*                   onShare={handleShareSnippet}/>*/}
+            <ShareSnippetModal loading={loadingShare || isLoading} open={shareModalOppened}
+                               onClose={() => setShareModalOppened(false)}
+                               onShare={handleShareSnippet}/>
             <TestSnippetModal open={testModalOpened} onClose={() => setTestModalOpened(false)} snippetId={snippet?.id}/>
             <DeleteConfirmationModal open={deleteConfirmationModalOpen} onClose={() => setDeleteConfirmationModalOpen(false)} id={snippet?.id ?? ""} setCloseDetails={handleCloseModal} />
             <Dialog open={!!updateError} onClose={() => setUpdateError(null)}>

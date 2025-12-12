@@ -1,6 +1,6 @@
 import {SnippetOperations} from '../snippetOperations'
 import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snippet'
-import {PaginatedUsers} from "../users"
+import {Friends} from "../users"
 import {TestCase} from "../../types/TestCase"
 import {SnippetTestExecution} from "../../types/snippetDetails"
 import {FileType} from "../../types/FileType"
@@ -128,10 +128,11 @@ const parseFilters = (raw?: string): SnippetListFilters | undefined => {
 }
 
 export class RealSnippetOperations implements SnippetOperations {
-    constructor(private getToken?: TokenGetter) {}
+    constructor(private getToken?: TokenGetter) {
+    }
 
     async listSnippetDescriptors(page: number, pageSize: number, snippetName?: string): Promise<PaginatedSnippets> {
-        const q = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+        const q = new URLSearchParams({page: String(page), page_size: String(pageSize)})
         const filters = parseFilters(snippetName)
         if (filters?.name) q.set("name", filters.name)
         if (filters?.language) q.set("language", filters.language)
@@ -209,9 +210,15 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async updateSnippetById(id: string, updateSnippet: UpdateSnippet): Promise<Snippet> {
-        const payload = updateSnippet
-        if (!payload.name || !payload.language) {
-            throw new Error("Nombre y lenguaje son obligatorios para actualizar un snippet.")
+        const payload = updateSnippet as UpdateSnippet & {
+            name?: string;
+            description?: string;
+            language?: string;
+            version?: string;
+            extension?: string;
+        }
+        if (!payload.name || !payload.language || !payload.version) {
+            throw new Error("Nombre, lenguaje y versión son obligatorios para actualizar un snippet.")
         }
 
         const formData = new FormData()
@@ -247,13 +254,13 @@ export class RealSnippetOperations implements SnippetOperations {
         return mapSnippetResponse(data)
     }
 
-    async getUserFriends(name: string = "", page: number = 0, pageSize: number = 10): Promise<PaginatedUsers> {
-        const q = new URLSearchParams({ name, page: String(page), page_size: String(pageSize) })
-        const res = await fetch(`${BASE_URL}/users?${q.toString()}`, {
+    async getUserFriends(): Promise<Friends[]> {
+        const res = await fetch(`${BASE_URL}/snippets/users`, {
+            method: "GET",
             headers: await authHeaders(this.getToken)
-        })
-        if (!res.ok) throw new Error("Error listando usuarios")
-        return res.json()
+        });
+        if (!res.ok) throw new Error("Error obteniendo usuarios");
+        return res.json();
     }
 
     async shareSnippet(snippetId: string, userId: string): Promise<Snippet> {

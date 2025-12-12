@@ -11,6 +11,9 @@ jobs:
   publish:
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    outputs:
+      image_repo: ${{ steps.publish_info.outputs.image_repo }}
+      deploy_tag: ${{ steps.publish_info.outputs.deploy_tag }}
 
     permissions:
       contents: read
@@ -93,3 +96,83 @@ jobs:
             ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:latest
             ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:${{ steps.tag.outputs.value }}
             ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:${{ steps.tag.outputs.branch }}
+
+      - name: Expose publish outputs
+        id: publish_info
+        env:
+          OWNER: ${{ steps.img.outputs.owner }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          echo "image_repo=ghcr.io/${OWNER}/printscript-ui" >> "$GITHUB_OUTPUT"
+          echo "deploy_tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+  deploy-dev:
+    needs: publish
+    if: needs.publish.result == 'success' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to dev server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          envs: VM_PROJECT_PATH,GHCR_USER,GHCR_TOKEN,IMAGE_REPO,DEPLOY_TAG
+          script: |
+            set -euo pipefail
+            echo "[deploy-dev] Using image: ${IMAGE_REPO}:${DEPLOY_TAG}"
+            cd "${VM_PROJECT_PATH}"
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+            COMPOSE_FILE="docker-compose.dev.yml"
+            ENV_FILE=".env.dev"
+            if [ ! -f "$COMPOSE_FILE" ]; then
+              echo "::error file=$COMPOSE_FILE::Compose file not found"
+              exit 1
+            fi
+            ENV_FLAG=""
+            if [ -f "$ENV_FILE" ]; then
+              ENV_FLAG="--env-file $ENV_FILE"
+            fi
+            docker compose -f "$COMPOSE_FILE" $ENV_FLAG pull printscript-ui
+            docker compose -f "$COMPOSE_FILE" $ENV_FLAG up -d --no-deps printscript-ui
+            docker image prune -f --filter "dangling=true"
+        env:
+          VM_PROJECT_PATH: ${{ secrets.DEPLOY_WORKDIR_DEV }}
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          IMAGE_REPO: ${{ needs.publish.outputs.image_repo }}
+          DEPLOY_TAG: ${{ needs.publish.outputs.deploy_tag }}
+
+  deploy-prod:
+    needs: publish
+    if: needs.publish.result == 'success' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to prod server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_VM_HOST }}
+          username: ${{ secrets.PROD_VM_USER }}
+          key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          script_stop: true
+          envs: PROD_DEPLOY_WORKDIR,PROD_GHCR_USER,PROD_GHCR_TOKEN,IMAGE_REPO,DEPLOY_TAG
+          script: |
+            set -euo pipefail
+            echo "[deploy-prod] Using image: ${IMAGE_REPO}:${DEPLOY_TAG}"
+            cd "${PROD_DEPLOY_WORKDIR}"
+            echo "$PROD_GHCR_TOKEN" | docker login ghcr.io -u "${PROD_GHCR_USER}" --password-stdin
+            COMPOSE_FILE="docker-compose.yml"
+            if [ ! -f "$COMPOSE_FILE" ]; then
+              echo "::error file=$COMPOSE_FILE::Compose file not found"
+              exit 1
+            fi
+            docker compose -f "$COMPOSE_FILE" pull printscript-ui
+            docker compose -f "$COMPOSE_FILE" up -d --no-deps printscript-ui
+            docker image prune -f --filter "dangling=true"
+        env:
+          PROD_DEPLOY_WORKDIR: ${{ secrets.PROD_DEPLOY_WORKDIR }}
+          PROD_GHCR_USER: ${{ secrets.PROD_GHCR_USER }}
+          PROD_GHCR_TOKEN: ${{ secrets.PROD_GHCR_TOKEN }}
+          IMAGE_REPO: ${{ needs.publish.outputs.image_repo }}
+          DEPLOY_TAG: ${{ needs.publish.outputs.deploy_tag }}

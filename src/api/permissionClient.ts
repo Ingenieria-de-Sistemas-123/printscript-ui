@@ -9,8 +9,7 @@ export type UserAccountDto = {
     updatedAt: string;
 };
 
-const PERMISSION_BASE_URL =
-    import.meta.env.VITE_PERMISSION_BASE_URL ?? "/api";
+const PERMISSION_BASE_URL = "http://localhost:8080/api";
 
 export async function syncCurrentUser(token: string): Promise<UserAccountDto> {
     const resp = await fetch(`${PERMISSION_BASE_URL}/me/sync`, {

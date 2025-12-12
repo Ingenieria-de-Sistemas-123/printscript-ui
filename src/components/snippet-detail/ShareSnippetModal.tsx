@@ -6,10 +6,10 @@ import {Friends} from "../../utils/users.ts";
 import useDebounce from "../../hooks/useDebounce";
 
 type ShareSnippetModalProps = {
-  open: boolean
-  onClose: () => void
-  onShare: (userId: string) => void
-  loading: boolean
+    open: boolean
+    onClose: () => void
+    onShare: (userId: string) => void
+    loading: boolean
 }
 export const ShareSnippetModal = (props: ShareSnippetModalProps) => {
   const {open, onClose, onShare, loading} = props

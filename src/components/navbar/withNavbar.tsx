@@ -1,8 +1,7 @@
-import {ComponentType} from "react";
 import {Navbar} from "./Navbar.tsx";
 import {Box} from "@mui/material";
 
-export const withNavbar = (WrappedComponent: ComponentType<unknown>) => {
+export const withNavbar = (WrappedComponent: React.FC) => {
     return () => (
         <>
             <Navbar/>

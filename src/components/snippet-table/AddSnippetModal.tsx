@@ -3,6 +3,10 @@ import {
     Button,
     capitalize,
     CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     Input,
     InputLabel,
     MenuItem,
@@ -22,47 +26,45 @@ import {CreateSnippet, CreateSnippetWithLang} from "../../utils/snippet.ts";
 import {ModalWrapper} from "../common/ModalWrapper.tsx";
 import {useCreateSnippet, useGetFileTypes} from "../../utils/queries.tsx";
 import {queryClient} from "../../App.tsx";
-
-type RichCreateSnippet = CreateSnippet & {
-    description: string;
-    version: string;
-}
+import {useSnackbarContext} from "../../contexts/snackbarContext.tsx";
 
 export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
     open: boolean,
     onClose: () => void,
-    defaultSnippet?: CreateSnippetWithLang & Partial<RichCreateSnippet>
+    defaultSnippet?: CreateSnippetWithLang
 }) => {
     const [language, setLanguage] = useState(defaultSnippet?.language ?? "printscript");
     const [code, setCode] = useState(defaultSnippet?.content ?? "");
     const [snippetName, setSnippetName] = useState(defaultSnippet?.name ?? "")
-    const [description, setDescription] = useState(defaultSnippet?.description ?? "")
-    const [version, setVersion] = useState(defaultSnippet?.version ?? "1.0")
+    const [creationError, setCreationError] = useState<string | null>(null)
     const {mutateAsync: createSnippet, isLoading: loadingSnippet} = useCreateSnippet({
         onSuccess: () => queryClient.invalidateQueries('listSnippets')
     })
     const {data: fileTypes} = useGetFileTypes();
+    const {createSnackbar} = useSnackbarContext()
 
     const handleCreateSnippet = async () => {
-        const newSnippet: RichCreateSnippet = {
+        const newSnippet: CreateSnippet = {
             name: snippetName,
-            description,
             content: code,
             language: language,
-            version,
             extension: fileTypes?.find((f) => f.language === language)?.extension ?? "prs"
         }
-        await createSnippet(newSnippet);
-        onClose();
+        try {
+            await createSnippet(newSnippet);
+            onClose();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Error creando snippet"
+            setCreationError(message)
+            createSnackbar('error', "Snippet inválido. Revisa el detalle para corregirlo.")
+        }
     }
 
     useEffect(() => {
         if (defaultSnippet) {
-            setCode(defaultSnippet?.content ?? "")
-            setLanguage(defaultSnippet?.language ?? "printscript")
-            setSnippetName(defaultSnippet?.name ?? "")
-            setDescription(defaultSnippet?.description ?? "")
-            setVersion(defaultSnippet?.version ?? "1.0")
+            setCode(defaultSnippet?.content)
+            setLanguage(defaultSnippet?.language)
+            setSnippetName(defaultSnippet?.name)
         }
     }, [defaultSnippet]);
 
@@ -74,7 +76,7 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
                                 sx={{display: 'flex', alignItems: 'center'}}>
                         Add Snippet
                     </Typography>
-                    <Button disabled={!snippetName || !code || !language || !version || loadingSnippet} variant="contained"
+                    <Button disabled={!snippetName || !code || !language || loadingSnippet} variant="contained"
                             disableRipple
                             sx={{boxShadow: 0}} onClick={handleCreateSnippet}>
                         <Box pr={1} display={"flex"} alignItems={"center"} justifyContent={"center"}>
@@ -98,15 +100,6 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
                 flexDirection: 'column',
                 gap: '16px'
             }}>
-                <InputLabel htmlFor="description">Description</InputLabel>
-                <Input onChange={e => setDescription(e.target.value)} value={description} id="description"
-                       multiline minRows={2} sx={{width: '100%'}}/>
-            </Box>
-            <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px'
-            }}>
                 <InputLabel htmlFor="name">Language</InputLabel>
                 <Select
                     labelId="demo-simple-select-label"
@@ -123,15 +116,6 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
                         ))
                     }
                 </Select>
-            </Box>
-            <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px'
-            }}>
-                <InputLabel htmlFor="version">Version</InputLabel>
-                <Input onChange={e => setVersion(e.target.value)} value={version} id="version"
-                       sx={{width: '50%'}}/>
             </Box>
             <InputLabel>Code Snippet</InputLabel>
             <Box width={"100%"} sx={{
@@ -154,6 +138,17 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
                     }}
                 />
             </Box>
+            <Dialog open={!!creationError} onClose={() => setCreationError(null)}>
+                <DialogTitle>Snippet inválido</DialogTitle>
+                <DialogContent dividers>
+                    <Typography variant="body2" whiteSpace="pre-wrap">
+                        {creationError}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setCreationError(null)}>Entendido</Button>
+                </DialogActions>
+            </Dialog>
         </ModalWrapper>
     )
 }

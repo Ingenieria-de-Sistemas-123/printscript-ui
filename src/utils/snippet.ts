@@ -43,7 +43,7 @@ export const getFileLanguage = (fileTypes: FileType[], fileExt?: string) => {
 }
 
 const FALLBACK_LANGUAGE_VERSIONS: Record<string, string[]> = {
-    printscript: ["1.0"],
+    printscript: ["1.0", "1.1"],
 }
 
 const normalizeLanguage = (value?: string) => value?.toLowerCase() ?? ""

@@ -12,12 +12,15 @@ export const ModalWrapper = ({open, onClose,children}: { open: boolean, onClose:
         >
             <Box sx={{
                 backgroundColor: 'white',
-                padding: '32px',
+                p: {xs: 2, sm: 4},
                 borderRadius: '8px',
-                width: '50%',
+                width: {xs: '90%', sm: '80%', md: '60%', lg: '50%'},
+                maxHeight: '90vh',
+                overflowY: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '16px'
+                gap: '16px',
+                boxSizing: 'border-box'
             }}>
                 {children}
             </Box>

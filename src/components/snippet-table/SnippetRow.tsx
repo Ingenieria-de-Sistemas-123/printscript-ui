@@ -1,7 +1,7 @@
 import {alpha, Skeleton, styled, TableRow, TableRowProps} from "@mui/material";
 import {StyledTableCell} from "./SnippetTable.tsx";
 import {Snippet} from "../../utils/snippet.ts";
-import {SnippetRelation} from "../../types/snippetDetails.ts";
+import {SnippetDetails} from "../../types/snippetDetails.ts";
 
 const StyledTableRow = styled(TableRow)(({theme}) => ({
     backgroundColor: 'white',
@@ -36,21 +36,13 @@ const StyledTableRow = styled(TableRow)(({theme}) => ({
 }));
 
 
-type SnippetRowData = Snippet & { relation?: SnippetRelation }
-
-const relationLabel = (relation?: SnippetRelation) => {
-    if (relation === "OWNER") return "Owned"
-    if (relation === "SHARED") return "Shared"
-    return "Unknown"
-}
-
-export const SnippetRow = ({snippet, onClick, ...props}: { snippet: SnippetRowData, onClick: () => void } & TableRowProps) => {
+export const SnippetRow = ({snippet, onClick, ...props}: { snippet: Snippet | SnippetDetails, onClick: () => void } & TableRowProps) => {
     return (
         <StyledTableRow onClick={onClick} sx={{backgroundColor: 'white', border: 0, height: '75px'}} {...props}>
             <StyledTableCell>{snippet.name}</StyledTableCell>
             <StyledTableCell>{snippet.language}</StyledTableCell>
-            <StyledTableCell>{snippet.author}</StyledTableCell>
-            <StyledTableCell>{relationLabel(snippet.relation as SnippetRelation)}</StyledTableCell>
+            <StyledTableCell>{(snippet as SnippetDetails).author ?? 'Unknown'}</StyledTableCell>
+            <StyledTableCell>{(snippet as SnippetDetails).relation ?? 'OWNER'}</StyledTableCell>
             <StyledTableCell>{snippet.compliance}</StyledTableCell>
         </StyledTableRow>
     )

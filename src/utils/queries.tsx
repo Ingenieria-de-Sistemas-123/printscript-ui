@@ -184,3 +184,14 @@ export const useLintAllSnippets = () => {
     const snippetOperations = useSnippetsOperations();
     return useMutation<void, Error, void>(() => snippetOperations.lintAllSnippets());
 };
+
+export const useExecuteSnippet = (snippetId: string) => {
+    const snippetOperations = useSnippetsOperations()
+
+    return useMutation<
+        { exitCode: number; stdout: string; stderr: string },
+        Error,
+        { input: string }
+    >(({ input }) => snippetOperations.executeSnippet(snippetId, input))
+}
+

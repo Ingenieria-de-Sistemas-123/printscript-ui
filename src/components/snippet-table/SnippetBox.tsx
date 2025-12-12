@@ -1,35 +1,25 @@
-import {ReactNode, useEffect, useState} from "react";
-import {Box, BoxProps} from "@mui/material";
+import { ReactNode, useEffect, useState } from "react";
+import { Box, BoxProps } from "@mui/material";
 
 type SnippetBoxProps = {
     code: string;
-    children: ReactNode;
-} & BoxProps
+    children?: ReactNode;
+} & BoxProps;
 
 const SnippetBox = (props: SnippetBoxProps) => {
-    const {code, children} = props;
-    const [showBox, setShowBox] = useState(false)
+    const { code, children, ...boxProps } = props;
+    const [showBox, setShowBox] = useState(false);
 
     useEffect(() => {
-        const interval = setInterval(() => {
+        const timeout = setTimeout(() => {
             if (code.includes("snake_case_variable")) {
-                setShowBox(true)
+                setShowBox(true);
             }
         }, 5000);
-        return () => clearInterval(interval);
+        return () => clearTimeout(timeout);
     }, [code]);
 
-    return (
-        <Box {...props}>
-            {
-                showBox ? (
-                    <></> // Add easter egg here
-                ) : children
-            }
-        </Box>
-    )
+    return <Box {...boxProps}>{showBox ? <></> : children}</Box>;
+};
 
-
-}
-
-export const Bòx = SnippetBox
+export const Bòx = SnippetBox;

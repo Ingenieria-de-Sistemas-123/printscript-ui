@@ -59,6 +59,7 @@ export const TestSnippetModal = ({open, onClose, snippetId}: TestSnippetModalPro
         try {
             const result = await executeTest(testId);
             setExecutions(prev => ({...prev, [testId]: result}));
+            queryClient.invalidateQueries(['testCases', snippetId]);
             createSnackbar('success', "Test ejecutado");
         } catch (error) {
             const message = error instanceof Error ? error.message : "Error ejecutando test";

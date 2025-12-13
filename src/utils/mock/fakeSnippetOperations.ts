@@ -87,7 +87,7 @@ export class FakeSnippetOperations implements SnippetOperations {
         })
     }
 
-    saveSnippetTest(snippetId: string, testCase: TestCase): Promise<TestCase> {
+    saveSnippetTest(snippetId: string, testCase: Partial<TestCase>): Promise<TestCase> {
         return new Promise(resolve => {
             setTimeout(() => resolve(this.fakeStore.upsertTestCase(snippetId, testCase)), DELAY)
         })

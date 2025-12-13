@@ -86,14 +86,23 @@ const fakeTestCases: TestCase[] = [
     {
         id: uuid(),
         name: "Test Case 1",
+        description: "Debe sumar correctamente",
         input: ["A", "B"],
-        output: ["C", "D"]
+        expectedOutput: "C",
+        lastRunExitCode: 0,
+        lastRunOutput: "C",
+        lastRunAt: new Date().toISOString(),
     },
     {
         id: uuid(),
         name: "Test Case 2",
-        input: ["E", "F"],
-        output: ["G", "H"]
+        description: "Error esperado",
+        input: ["1", "2"],
+        expectedOutput: "3",
+        lastRunExitCode: 1,
+        lastRunError: "Mismatch",
+        lastRunOutput: "4",
+        lastRunAt: new Date().toISOString(),
     },
 ]
 
@@ -195,12 +204,20 @@ export class FakeSnippetStore {
     upsertTestCase(snippetId: string, testCase: Partial<TestCase>): TestCase {
         const current = this.snippetTests.get(snippetId) ?? []
         if (testCase.id) {
-            const updated = current.map(tc => tc.id === testCase.id ? {...tc, ...testCase} as TestCase : tc)
+            const updated = current.map(tc => tc.id === testCase.id ? {
+                ...tc,
+                ...testCase,
+                expectedOutput: testCase.expectedOutput ?? tc.expectedOutput ?? "",
+            } as TestCase : tc)
             this.snippetTests.set(snippetId, updated)
             return updated.find(tc => tc.id === testCase.id) as TestCase
         }
         const id = uuid()
-        const newTestCase = {...testCase, id} as TestCase
+        const newTestCase = {
+            ...testCase,
+            id,
+            expectedOutput: testCase.expectedOutput ?? "",
+        } as TestCase
         this.snippetTests.set(snippetId, [...current, newTestCase])
         return newTestCase
     }
@@ -216,17 +233,29 @@ export class FakeSnippetStore {
         return id
     }
 
-    executeSnippetTest(_snippetId: string, testId: string): SnippetTestExecution {
-        const passed = Math.random() > 0.5
+    executeSnippetTest(snippetId: string, testId: string): SnippetTestExecution {
         const now = new Date().toISOString()
-        return {
+        const test = (this.snippetTests.get(snippetId) ?? []).find(tc => tc.id === testId)
+        const stdout = test?.expectedOutput ?? "OK"
+        const passed = true
+        const execution: SnippetTestExecution = {
             id: testId,
             passed,
-            exitCode: passed ? 0 : 1,
-            stdout: passed ? "OK" : "Expected different output",
-            stderr: passed ? null : "Failure",
+            exitCode: 0,
+            stdout,
+            stderr: null,
             lastRunAt: now,
         }
+        if (test) {
+            this.upsertTestCase(snippetId, {
+                ...test,
+                lastRunExitCode: execution.exitCode,
+                lastRunOutput: execution.stdout ?? undefined,
+                lastRunError: execution.stderr ?? undefined,
+                lastRunAt: now,
+            })
+        }
+        return execution
     }
 
     getFileTypes(): FileType[] {

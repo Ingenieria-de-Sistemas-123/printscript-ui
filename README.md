@@ -1,3 +1,24 @@
+Build Image
+
+Get-Content .env.local |
+Where-Object { $_ -and -not $_.StartsWith('#') } |
+ForEach-Object {
+$name, $value = $_ -split '=', 2
+Set-Item -Path Env:$name -Value $value
+}
+
+docker build `
+    --build-arg VITE_AUTH0_DOMAIN=$env:VITE_AUTH0_DOMAIN `
+--build-arg VITE_AUTH0_CLIENT_ID=$env:VITE_AUTH0_CLIENT_ID `
+    --build-arg VITE_AUTH0_AUDIENCE=$env:VITE_AUTH0_AUDIENCE `
+--build-arg VITE_AUTH0_CALLBACK_URL=$env:VITE_AUTH0_CALLBACK_URL `
+    --build-arg VITE_PERMISSION_BASE_URL=$env:VITE_PERMISSION_BASE_URL `
+--build-arg VITE_BACKEND_URL=$env:VITE_BACKEND_URL `
+    --build-arg VITE_FRONTEND_URL=$env:VITE_FRONTEND_URL `
+-t printscript-ui .
+
+
+
 # Printscript UI
 
 This is a React project using Vite and Node.js 20. This README will guide you on how to set up and start the project locally.

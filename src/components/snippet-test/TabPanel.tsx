@@ -1,100 +1,171 @@
-import {useState} from "react";
+import {useEffect, useState} from "react";
+import {Alert, Box, Button, Stack, TextField, Typography} from "@mui/material";
 import {TestCase} from "../../types/TestCase.ts";
-import {Autocomplete, Box, Button, Chip, TextField, Typography} from "@mui/material";
-import {BugReport, Delete, Save} from "@mui/icons-material";
-import {useTestSnippet} from "../../utils/queries.tsx";
+import {SnippetTestExecution} from "../../types/snippetDetails.ts";
+import {useSnackbarContext} from "../../contexts/snackbarContext.tsx";
+import {BugReport} from "@mui/icons-material";
 
 type TabPanelProps = {
     index: number;
     value: number;
     test?: TestCase;
-    setTestCase: (test: Partial<TestCase>) => void;
-    removeTestCase?: (testIndex: string) => void;
+    setTestCase: (testCase: Partial<TestCase>) => Promise<TestCase>;
+    removeTestCase?: (id: string) => Promise<string>;
+    onExecute?: () => Promise<void>;
+    execution?: SnippetTestExecution;
+    isExecuting?: boolean;
 }
 
-export const TabPanel = ({value, index, test: initialTest, setTestCase, removeTestCase}: TabPanelProps) => {
-    const [testData, setTestData] = useState<Partial<TestCase> | undefined>(initialTest);
+export const TabPanel = ({value, index, test, setTestCase, removeTestCase, onExecute, execution, isExecuting}: TabPanelProps) => {
+    const isActive = value === index;
+    const {createSnackbar} = useSnackbarContext();
+    const [name, setName] = useState(test?.name ?? "");
+    const [input, setInput] = useState(test?.input?.join("\n") ?? "");
+    const [output, setOutput] = useState(test?.output?.join("\n") ?? "");
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
-    const {mutateAsync: testSnippet, data} = useTestSnippet();
+    useEffect(() => {
+        setName(test?.name ?? "");
+        setInput(test?.input?.join("\n") ?? "");
+        setOutput(test?.output?.join("\n") ?? "");
+    }, [test]);
 
+    const parseLines = (value: string): string[] | undefined => {
+        const lines = value
+            .split("\n")
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+        return lines.length ? lines : undefined;
+    };
+
+    const handleSave = async () => {
+        if (!name.trim()) {
+            createSnackbar('error', "El nombre es obligatorio");
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await setTestCase({
+                id: test?.id,
+                name: name.trim(),
+                input: parseLines(input),
+                output: parseLines(output)
+            });
+            createSnackbar('success', test ? "Test actualizado" : "Test creado");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Error guardando test";
+            createSnackbar('error', message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!test?.id || !removeTestCase) return;
+        setIsDeleting(true);
+        try {
+            await removeTestCase(test.id);
+            createSnackbar('success', "Test eliminado");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Error eliminando test";
+            createSnackbar('error', message);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleExecute = async () => {
+        if (!onExecute) return;
+        try {
+            await onExecute();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Error ejecutando test";
+            createSnackbar('error', message);
+        }
+    };
 
     return (
         <div
             role="tabpanel"
-            hidden={value !== index}
-            id={`vertical-tabpanel-${index}`}
-            aria-labelledby={`vertical-tab-${index}`}
+            hidden={!isActive}
+            id={`snippet-test-tabpanel-${index}`}
+            aria-labelledby={`snippet-test-tab-${index}`}
             style={{width: '100%', height: '100%'}}
         >
-            {value === index && (
-                <Box sx={{px: 3}} display="flex" flexDirection="column" gap={2}>
-                    <Box display="flex" flexDirection="column" gap={1}>
-                        <Typography fontWeight="bold">Name</Typography>
-                        <TextField size="small" value={testData?.name}
-                                   onChange={(e) => setTestData({...testData, name: e.target.value})}/>
-                    </Box>
-                    <Box display="flex" flexDirection="column" gap={1}>
-                        <Typography fontWeight="bold">Input</Typography>
-                        <Autocomplete
-                            multiple
-                            size="small"
-                            id="tags-filled"
-                            freeSolo
-                            value={testData?.input ?? []}
-                            onChange={(_, value) => setTestData({...testData, input: value})}
-                            renderTags={(value: readonly string[], getTagProps) =>
-                                value.map((option: string, index: number) => (
-                                    <Chip variant="outlined" label={option} {...getTagProps({index})} />
-                                ))
-                            }
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                />
-                            )}
-                            options={[]}
-                        />
-                    </Box>
-                    <Box display="flex" flexDirection="column" gap={1}>
-                        <Typography fontWeight="bold">Output</Typography>
-                        <Autocomplete
-                            multiple
-                            size="small"
-                            id="tags-filled"
-                            freeSolo
-                            value={testData?.output ?? []}
-                            onChange={(_, value) => setTestData({...testData, output: value})}
-                            renderTags={(value: readonly string[], getTagProps) =>
-                                value.map((option: string, index: number) => (
-                                    <Chip variant="outlined" label={option} {...getTagProps({index})} />
-                                ))
-                            }
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                />
-                            )}
-                            options={[]}
-                        />
-                    </Box>
-                    <Box display="flex" flexDirection="row" gap={1}>
-                        {
-                            (testData?.id && removeTestCase) && (
-                            <Button onClick={() => removeTestCase(testData?.id ?? "")} variant={"outlined"} color={"error"}
-                                    startIcon={<Delete/>}>
-                                Remove
-                            </Button>)
-                        }
-                        <Button disabled={!testData?.name} onClick={() => setTestCase(testData ?? {})} variant={"outlined"} startIcon={<Save/>}>
-                            Save
+            {isActive && (
+                <Box sx={{px: 3, minWidth: 360}} display="flex" flexDirection="column" gap={2}>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                        {test ? "Editar test" : "Nuevo test"}
+                    </Typography>
+                    <TextField
+                        label="Nombre"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        fullWidth
+                    />
+                    <TextField
+                        label="Entradas (una por línea)"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        multiline
+                        minRows={4}
+                        fullWidth
+                    />
+                    <TextField
+                        label="Salidas esperadas (una por línea)"
+                        value={output}
+                        onChange={(e) => setOutput(e.target.value)}
+                        multiline
+                        minRows={4}
+                        fullWidth
+                    />
+                    <Stack direction="row" spacing={2} flexWrap="wrap">
+                        <Button
+                            variant="contained"
+                            onClick={handleSave}
+                            disabled={isSaving || !name.trim()}
+                        >
+                            {test ? "Guardar" : "Crear"}
                         </Button>
-                        <Button onClick={() => testSnippet(testData ?? {})} variant={"contained"} startIcon={<BugReport/>}
-                                disableElevation>
-                            Test
-                        </Button>
-                        {data && (data === "success" ? <Chip label="Pass" color="success"/> :
-                            <Chip label="Fail" color="error"/>)}
-                    </Box>
+                        {test?.id && removeTestCase && (
+                            <Button
+                                variant="outlined"
+                                color="error"
+                                onClick={handleDelete}
+                                disabled={isDeleting || isSaving}
+                            >
+                                Eliminar
+                            </Button>
+                        )}
+                        {test?.id && onExecute && (
+                            <Button
+                                variant="outlined"
+                                onClick={handleExecute}
+                                disabled={isExecuting}
+                                startIcon={<BugReport/>}
+                            >
+                                Ejecutar test
+                            </Button>
+                        )}
+                    </Stack>
+                    {execution && (
+                        <Alert severity={execution.passed ? "success" : "error"}>
+                            <Typography fontWeight="bold" mb={1}>
+                                Resultado: {execution.passed ? "OK" : "Error"} (exit {execution.exitCode})
+                            </Typography>
+                            {execution.stdout && (
+                                <Typography variant="body2" sx={{whiteSpace: 'pre-wrap'}}>
+                                    STDOUT {"\n"}{execution.stdout}
+                                </Typography>
+                            )}
+                            {execution.stderr && (
+                                <Typography variant="body2" sx={{whiteSpace: 'pre-wrap', mt: 1}}>
+                                    STDERR {"\n"}{execution.stderr}
+                                </Typography>
+                            )}
+                        </Alert>
+                    )}
                 </Box>
             )}
         </div>

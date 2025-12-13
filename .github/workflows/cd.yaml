@@ -1,0 +1,183 @@
+name: Publish images
+
+on:
+  workflow_run:
+    workflows: [ "CI" ]
+    types: [ completed ]
+  push:
+    branches: ["main", "dev"]
+
+jobs:
+  publish:
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      image_repo: ${{ steps.publish_info.outputs.image_repo }}
+      deploy_tag: ${{ steps.publish_info.outputs.deploy_tag }}
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Normalize owner to lowercase
+        id: img
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
+
+      - name: Compute tag safely
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Si es push de tag → usa ese tag; si no → usa commit-<sha7>
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=commit-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+          SAFE_BRANCH="${GITHUB_REF_NAME//\//-}"
+          echo "branch=${SAFE_BRANCH}" >> "$GITHUB_OUTPUT"
+
+      # 🔹 Elegimos los valores de Auth0 y backend según la branch (dev vs main)
+      - name: Select env by branch
+        id: env
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "auth0_domain=${{ secrets.VITE_AUTH0_DOMAIN_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_client_id=${{ secrets.VITE_AUTH0_CLIENT_ID_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_audience=${{ secrets.VITE_AUTH0_AUDIENCE_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_callback=${{ secrets.VITE_AUTH0_CALLBACK_URL_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "permission_base_url=${{ secrets.VITE_PERMISSION_BASE_URL_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "backend_url=${{ secrets.VITE_BACKEND_URL_PROD }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "auth0_domain=${{ secrets.VITE_AUTH0_DOMAIN }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_client_id=${{ secrets.VITE_AUTH0_CLIENT_ID }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_audience=${{ secrets.VITE_AUTH0_AUDIENCE }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_callback=${{ secrets.VITE_AUTH0_CALLBACK_URL }}" >> "$GITHUB_OUTPUT"
+            echo "permission_base_url=${{ secrets.VITE_PERMISSION_BASE_URL }}" >> "$GITHUB_OUTPUT"
+            echo "backend_url=${{ secrets.VITE_BACKEND_URL }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and Push Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            VITE_AUTH0_DOMAIN=${{ steps.env.outputs.auth0_domain }}
+            VITE_AUTH0_CLIENT_ID=${{ steps.env.outputs.auth0_client_id }}
+            VITE_AUTH0_AUDIENCE=${{ steps.env.outputs.auth0_audience }}
+            VITE_AUTH0_CALLBACK_URL=${{ steps.env.outputs.auth0_callback }}
+            VITE_PERMISSION_BASE_URL=${{ steps.env.outputs.permission_base_url }}
+            VITE_BACKEND_URL=${{ steps.env.outputs.backend_url }}
+          tags: |
+            ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:latest
+            ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:${{ steps.tag.outputs.value }}
+            ghcr.io/${{ steps.img.outputs.owner }}/printscript-ui:${{ steps.tag.outputs.branch }}
+
+      - name: Expose publish outputs
+        id: publish_info
+        env:
+          OWNER: ${{ steps.img.outputs.owner }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          echo "image_repo=ghcr.io/${OWNER}/printscript-ui" >> "$GITHUB_OUTPUT"
+          echo "deploy_tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+  deploy-dev:
+    needs: publish
+    if: needs.publish.result == 'success' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to dev server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          envs: VM_PROJECT_PATH,GHCR_USER,GHCR_TOKEN,IMAGE_REPO,DEPLOY_TAG
+          script: |
+            set -euo pipefail
+            echo "[deploy-dev] Using image: ${IMAGE_REPO}:${DEPLOY_TAG}"
+            cd "${VM_PROJECT_PATH}"
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+            COMPOSE_FILE="docker-compose.dev.yml"
+            ENV_FILE=".env.dev"
+            if [ ! -f "$COMPOSE_FILE" ]; then
+              echo "::error file=$COMPOSE_FILE::Compose file not found"
+              exit 1
+            fi
+            ENV_FLAG=""
+            if [ -f "$ENV_FILE" ]; then
+              ENV_FLAG="--env-file $ENV_FILE"
+            fi
+            docker compose -f "$COMPOSE_FILE" $ENV_FLAG pull printscript-ui
+            docker compose -f "$COMPOSE_FILE" $ENV_FLAG up -d --no-deps printscript-ui
+            docker image prune -f --filter "dangling=true"
+        env:
+          VM_PROJECT_PATH: ${{ secrets.DEPLOY_WORKDIR_DEV }}
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          IMAGE_REPO: ${{ needs.publish.outputs.image_repo }}
+          DEPLOY_TAG: ${{ needs.publish.outputs.deploy_tag }}
+
+  deploy-prod:
+    needs: publish
+    if: needs.publish.result == 'success' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to prod server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST_PROD }}
+          username: ${{ secrets.VM_USER_PROD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY_PROD }}
+          script_stop: true
+          envs: VM_PROJECT_PATH_PROD,GHCR_USER_PROD,GHCR_TOKEN_PROD,IMAGE_REPO,DEPLOY_TAG
+          script: |
+            set -euo pipefail
+            echo "[deploy-prod] Using image: ${IMAGE_REPO}:${DEPLOY_TAG}"
+            cd "${VM_PROJECT_PATH_PROD}"
+            echo "$GHCR_TOKEN_PROD" | docker login ghcr.io -u "${GHCR_USER_PROD}" --password-stdin
+            COMPOSE_FILE="docker-compose.prod.yml"
+            ENV_FILE=".env.prod"
+            if [ ! -f "$COMPOSE_FILE" ]; then
+              echo "::error file=$COMPOSE_FILE::Compose file not found"
+              exit 1
+            fi
+            ENV_FLAG=""
+            if [ -f "$ENV_FILE" ]; then
+              ENV_FLAG="--env-file $ENV_FILE"
+            fi
+            docker compose -f "$COMPOSE_FILE" $ENV_FLAG pull printscript-ui
+            docker compose -f "$COMPOSE_FILE" $ENV_FLAG up -d --no-deps printscript-ui
+            docker image prune -f --filter "dangling=true"
+        env:
+          VM_PROJECT_PATH_PROD: ${{ secrets.DEPLOY_WORKDIR_PROD }}
+          GHCR_USER_PROD: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN_PROD: ${{ secrets.GHCR_TOKEN }}
+          IMAGE_REPO: ${{ needs.publish.outputs.image_repo }}
+          DEPLOY_TAG: ${{ needs.publish.outputs.deploy_tag }}

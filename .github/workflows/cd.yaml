@@ -64,11 +64,12 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF_NAME}" == "master" ]]; then
-            echo "auth0_domain=${{ secrets.VITE_AUTH0_DOMAIN_PROD }}" >> "$GITHUB_OUTPUT"
-            echo "auth0_client_id=${{ secrets.VITE_AUTH0_CLIENT_ID_PROD }}" >> "$GITHUB_OUTPUT"
-            echo "auth0_audience=${{ secrets.VITE_AUTH0_AUDIENCE_PROD }}" >> "$GITHUB_OUTPUT"
+            # Prod uses same Auth0 settings as dev, except callback/backend URLs
+            echo "auth0_domain=${{ secrets.VITE_AUTH0_DOMAIN }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_client_id=${{ secrets.VITE_AUTH0_CLIENT_ID }}" >> "$GITHUB_OUTPUT"
+            echo "auth0_audience=${{ secrets.VITE_AUTH0_AUDIENCE }}" >> "$GITHUB_OUTPUT"
             echo "auth0_callback=${{ secrets.VITE_AUTH0_CALLBACK_URL_PROD }}" >> "$GITHUB_OUTPUT"
-            echo "permission_base_url=${{ secrets.VITE_PERMISSION_BASE_URL_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "permission_base_url=${{ secrets.VITE_PERMISSION_BASE_URL }}" >> "$GITHUB_OUTPUT"
             echo "backend_url=${{ secrets.VITE_BACKEND_URL_PROD }}" >> "$GITHUB_OUTPUT"
           else
             echo "auth0_domain=${{ secrets.VITE_AUTH0_DOMAIN }}" >> "$GITHUB_OUTPUT"

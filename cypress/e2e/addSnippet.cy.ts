@@ -1,71 +1,96 @@
-const BACKEND_URL = Cypress.env("BACKEND_URL") as string;
-
 describe('Add snippet tests', () => {
-    beforeEach(() => {
-        const username = Cypress.env('AUTH0_USERNAME') as string;
-        const password = Cypress.env('AUTH0_PASSWORD') as string;
+    const stubFileTypes = () => {
+        cy.intercept("GET", "**/file-types", {
+            statusCode: 200,
+            body: [
+                {
+                    language: "printscript",
+                    extension: "ps",
+                    versions: ["1.0", "1.1"],
+                    defaultVersion: "1.0",
+                },
+            ],
+        }).as("getFileTypes");
+    };
 
+    const stubCreateSnippet = () => {
+        cy.intercept("POST", "**/snippets", (req) => {
+            const contentType = String(req.headers["content-type"] ?? "");
+            expect(contentType).to.include("multipart/form-data");
+
+            req.reply({
+                statusCode: 200,
+                body: {
+                    id: "snippet-created",
+                    name: "Some snippet name",
+                    description: "",
+                    content: `const snippet: String = "some snippet"\nprint(snippet)`,
+                    language: "printscript",
+                    version: "1.0",
+                    extension: "ps",
+                    complianceStatus: "VALID",
+                    ownerName: "Alice",
+                    relation: "OWNER",
+                },
+            });
+        }).as("createSnippet");
+    };
+
+    const login = () => {
+        const username = Cypress.env("AUTH0_USERNAME") as string;
+        const password = Cypress.env("AUTH0_PASSWORD") as string;
         cy.loginToAuth0(username, password);
-    });
+    };
+
+    const typeInEditor = (testId: string, text: string) => {
+        cy.get(testId).then(($el) => {
+            if ($el.is("textarea")) {
+                cy.wrap($el).clear().type(text);
+                return;
+            }
+            cy.wrap($el).find("textarea").first().clear().type(text);
+        });
+    };
 
     it('Can add snippets manually', () => {
-        // 1) Interceptamos la request que trae los tipos de archivo
-        cy.intercept('GET', `${BACKEND_URL}/file-types`).as('getFileTypes');
+        stubFileTypes();
+        stubCreateSnippet();
+        login();
 
         cy.visit("/");
+        cy.wait("@getFileTypes");
 
-        // 2) Abrís el flujo de "Add snippet" como ya hacías
-        cy.get('.css-9jay18 > .MuiButton-root').click();
-        cy.get('.MuiList-root > [tabindex="0"]').click();
+        cy.contains("button", "Add Snippet").click();
+        cy.contains("li", "Create snippet").click();
 
-        // 3) Esperamos a que realmente se haya pedido `/file-types`
-        cy.wait('@getFileTypes');
+        cy.contains("h2", "Add Snippet").should("be.visible");
 
-        // 4) Stub del POST como ya tenías
-        cy.intercept('POST', `${BACKEND_URL}/snippets`, (req) => {
-            req.reply((res) => {
-                expect(res.body).to.include.keys("id", "name", "content", "language")
-                expect(res.statusCode).to.eq(200);
-            });
-        }).as('postRequest');
-
-        // 5) Completamos el formulario
-        cy.get('#name').type('Some snippet name');
-
-        cy.get('#demo-simple-select').click();
-
-        // Le damos tiempo extra y verificamos que exista antes de clickear
-        cy.get('[data-testid="menu-option-printscript"]', { timeout: 10000 })
-            .should('be.visible')
-            .click();
-
-        cy.get('[data-testid="add-snippet-code-editor"]').click();
-        cy.get('[data-testid="add-snippet-code-editor"]').type(
-            `const snippet: String = "some snippet" \n print(snippet)`
+        cy.get("#name").type("Some snippet name");
+        typeInEditor(
+            '[data-testid="add-snippet-code-editor"]',
+            `const snippet: String = "some snippet"\nprint(snippet)`
         );
 
-        cy.get('[data-testid="SaveIcon"]').click();
-
-        cy.wait('@postRequest').its('response.statusCode').should('eq', 200);
+        cy.contains("button", "Save Snippet").should("not.be.disabled").click();
+        cy.wait("@createSnippet").its("response.statusCode").should("eq", 200);
     });
 
     it('Can add snippets via file', () => {
-        cy.visit("/");
+        stubFileTypes();
+        stubCreateSnippet();
+        login();
 
-        cy.intercept('POST', `${BACKEND_URL}/snippets`, (req) => {
-            req.reply((res) => {
-                expect(res.body).to.include.keys("id","name","content","language")
-                expect(res.statusCode).to.eq(200);
-            });
-        }).as('postRequest');
+        cy.visit("/");
+        cy.wait("@getFileTypes");
 
         cy.get('[data-testid="upload-file-input"]').selectFile(
             "cypress/fixtures/example_ps.ps",
             { force: true }
         );
 
-        cy.get('[data-testid="SaveIcon"]').click();
+        cy.contains("h2", "Add Snippet").should("be.visible");
+        cy.contains("button", "Save Snippet").should("not.be.disabled").click();
 
-        cy.wait('@postRequest').its('response.statusCode').should('eq', 200);
+        cy.wait("@createSnippet").its("response.statusCode").should("eq", 200);
     });
 });

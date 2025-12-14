@@ -18,5 +18,7 @@ export function loginViaAuth0Ui(username: string, password: string) {
     );
 
     // Aseguramos que Auth0 nos devolvió a la app
-    cy.url().should("equal", "http://localhost:3000/");
+    const baseUrl = (Cypress.config("baseUrl") as string | undefined) ?? "http://localhost:3000";
+    const normalizedBase = baseUrl.replace(/\/+$/, "");
+    cy.url().should("equal", `${normalizedBase}/`);
 }

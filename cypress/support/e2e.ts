@@ -34,17 +34,3 @@ Cypress.Commands.add(
         log.end();
     }
 );
-
-// Hook global: antes de cada test, loguearse con las env de Cypress
-beforeEach(() => {
-    const username = Cypress.env("AUTH0_USERNAME") as string;
-    const password = Cypress.env("AUTH0_PASSWORD") as string;
-
-    if (!username || !password) {
-        throw new Error(
-            "AUTH0_USERNAME o AUTH0_PASSWORD no están configurados en Cypress.env"
-        );
-    }
-
-    cy.loginToAuth0(username, password);
-});

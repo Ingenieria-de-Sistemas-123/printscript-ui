@@ -15,11 +15,13 @@ export type SnippetLintError = {
 export type SnippetTest = {
   id: string;
   name: string;
-  script: string;
-  lastRunAt?: string;
-  lastRunExitCode?: number;
-  lastRunOutput?: string;
-  lastRunError?: string;
+  description?: string | null;
+  input?: string;
+  expectedOutput: string;
+  lastRunAt?: string | null;
+  lastRunExitCode?: number | null;
+  lastRunOutput?: string | null;
+  lastRunError?: string | null;
 };
 
 export type SnippetTestExecution = {

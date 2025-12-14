@@ -55,7 +55,7 @@ type RawSnippetResponse = {
     relation?: string;
     permission?: string;
     lintErrors?: RawLintIssue[];
-    tests?: SnippetTest[];
+    tests?: RawSnippetTest[];
 };
 
 type RawLintIssue = {
@@ -66,6 +66,18 @@ type RawLintIssue = {
     startCol?: number | null;
     endLine?: number | null;
     endCol?: number | null;
+};
+
+type RawSnippetTest = {
+    id?: string | null;
+    name?: string | null;
+    description?: string | null;
+    input?: string[] | string | null;
+    expectedOutput?: string | null;
+    lastRunAt?: string | null;
+    lastRunExitCode?: number | null;
+    lastRunOutput?: string | null;
+    lastRunError?: string | null;
 };
 
 type RawPaginatedResponse = {
@@ -91,6 +103,35 @@ const mapLintIssue = (issue: RawLintIssue): SnippetLintError => ({
     endCol: issue.endCol ?? issue.startCol ?? 0,
 });
 
+const normalizeTestInput = (input?: string[] | string | null): string | undefined => {
+    if (!input) return undefined;
+    return Array.isArray(input) ? input.filter(Boolean).join("\n") : input;
+};
+
+const mapSnippetTest = (test: RawSnippetTest): SnippetTest => ({
+    id: test.id ?? "unknown",
+    name: test.name ?? "Test",
+    description: test.description ?? undefined,
+    input: normalizeTestInput(test.input),
+    expectedOutput: test.expectedOutput ?? "",
+    lastRunAt: test.lastRunAt ?? null,
+    lastRunExitCode: test.lastRunExitCode ?? null,
+    lastRunOutput: test.lastRunOutput ?? null,
+    lastRunError: test.lastRunError ?? null,
+});
+
+const mapTestCase = (test: RawSnippetTest): TestCase => ({
+    id: test.id ?? "unknown",
+    name: test.name ?? "Test",
+    description: test.description ?? undefined,
+    input: normalizeTestInput(test.input),
+    expectedOutput: test.expectedOutput ?? "",
+    lastRunExitCode: test.lastRunExitCode ?? undefined,
+    lastRunOutput: test.lastRunOutput ?? undefined,
+    lastRunError: test.lastRunError ?? undefined,
+    lastRunAt: test.lastRunAt ?? undefined,
+});
+
 const mapSnippetResponse = (payload: RawSnippetResponse): SnippetDetails => ({
     id: payload.id,
     name: payload.name,
@@ -104,7 +145,7 @@ const mapSnippetResponse = (payload: RawSnippetResponse): SnippetDetails => ({
     author: payload.ownerName ?? payload.author ?? "Unknown",
     relation: (payload.relation as SnippetDetails["relation"]) ?? (payload.permission as SnippetDetails["relation"]) ?? undefined,
     lintErrors: (payload.lintErrors ?? []).map(mapLintIssue),
-    tests: payload.tests ?? [],
+    tests: (payload.tests ?? []).map(mapSnippetTest),
 })
 
 const mapPaginatedResponse = (data: RawPaginatedResponse): PaginatedSnippets => {
@@ -312,31 +353,39 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async getSnippetTests(snippetId: string): Promise<TestCase[]> {
-        const res = await fetch(`${BASE_URL}/snippets/${snippetId}/tests`, {
+        const res = await fetch(`${BASE_URL}/snippets/tests/${snippetId}`, {
             headers: await authHeaders(this.getToken)
         })
         if (!res.ok) throw new Error("Error obteniendo test cases")
-        return res.json()
+        const data = await res.json()
+        return (data ?? []).map((test: RawSnippetTest) => mapTestCase(test))
     }
 
     async saveSnippetTest(snippetId: string, testCase: Partial<TestCase>): Promise<TestCase> {
         const hasId = !!testCase.id
         const url = hasId
-            ? `${BASE_URL}/snippets/${snippetId}/tests/${testCase.id}`
-            : `${BASE_URL}/snippets/${snippetId}/tests`
+            ? `${BASE_URL}/snippets/tests/${snippetId}/${testCase.id}`
+            : `${BASE_URL}/snippets/tests/${snippetId}`
         const method = hasId ? "PUT" : "POST"
+        const inputValue = Array.isArray(testCase.input) ? testCase.input.join("\n") : testCase.input
+        const payload = {
+            name: testCase.name,
+            description: testCase.description,
+            input: inputValue,
+            expectedOutput: testCase.expectedOutput ?? "",
+        }
 
         const res = await fetch(url, {
             method,
             headers: await authHeaders(this.getToken),
-            body: JSON.stringify(testCase)
+            body: JSON.stringify(payload)
         })
         if (!res.ok) throw new Error(hasId ? "Error actualizando test case" : "Error creando test case")
         return res.json()
     }
 
     async removeSnippetTest(snippetId: string, id: string): Promise<string> {
-        const res = await fetch(`${BASE_URL}/snippets/${snippetId}/tests/${id}`, {
+        const res = await fetch(`${BASE_URL}/snippets/tests/${snippetId}/${id}`, {
             method: "DELETE",
             headers: await authHeaders(this.getToken)
         })
@@ -345,7 +394,7 @@ export class RealSnippetOperations implements SnippetOperations {
     }
 
     async executeSnippetTest(snippetId: string, testId: string): Promise<SnippetTestExecution> {
-        const res = await fetch(`${BASE_URL}/snippets/${snippetId}/tests/${testId}/execute`, {
+        const res = await fetch(`${BASE_URL}/snippets/tests/${snippetId}/${testId}/execute`, {
             method: "POST",
             headers: await authHeaders(this.getToken)
         })

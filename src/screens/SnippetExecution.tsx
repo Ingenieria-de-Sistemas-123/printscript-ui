@@ -1,13 +1,15 @@
-import {Box, Button, TextField} from "@mui/material";
+import {Box, Button, TextField, Tooltip} from "@mui/material";
 import { useState } from "react";
 import { Bòx } from "../components/snippet-table/SnippetBox";
 import { useExecuteSnippet } from "../utils/queries";
 
 type SnippetExecutionProps = {
     snippetId: string;
+    disabled?: boolean;
+    disabledReason?: string;
 };
 
-export const SnippetExecution = ({ snippetId }: SnippetExecutionProps) => {
+export const SnippetExecution = ({ snippetId, disabled, disabledReason }: SnippetExecutionProps) => {
     const [input, setInput] = useState("");
 
     const {
@@ -18,6 +20,7 @@ export const SnippetExecution = ({ snippetId }: SnippetExecutionProps) => {
     } = useExecuteSnippet(snippetId);
 
     const run = () => {
+        if (disabled) return;
         runSnippet({ input });
     };
 
@@ -32,7 +35,9 @@ export const SnippetExecution = ({ snippetId }: SnippetExecutionProps) => {
     const stdout = data?.stdout ?? "";
     const stderr = error?.message ?? data?.stderr ?? "";
 
-    const outputToShow = stderr && stderr.trim().length > 0 ? stderr : stdout;
+    const outputToShow = (disabled && !stderr && !stdout)
+        ? (disabledReason ?? "Guardá los cambios antes de ejecutar.")
+        : (stderr && stderr.trim().length > 0 ? stderr : stdout);
 
     return (
         <>
@@ -59,9 +64,13 @@ export const SnippetExecution = ({ snippetId }: SnippetExecutionProps) => {
                     minRows={2}
                     onKeyDown={handleKeyDown}
                 />
-                <Button variant="contained" disabled={running} onClick={run}>
-                    Run
-                </Button>
+                <Tooltip title={disabled ? (disabledReason ?? "Guardá los cambios antes de ejecutar.") : ""}>
+                    <span>
+                        <Button variant="contained" disabled={running || !!disabled} onClick={run}>
+                            Run
+                        </Button>
+                    </span>
+                </Tooltip>
             </Box>
         </>
     );

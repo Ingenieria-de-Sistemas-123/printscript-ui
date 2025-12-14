@@ -162,6 +162,32 @@ export class RealSnippetOperations implements SnippetOperations {
         return trimmed || defaultMessage
     }
 
+    private static formatPrintScriptError(defaultMessage: string, rawText?: string): string {
+        const extracted = RealSnippetOperations.extractErrorMessage(defaultMessage, rawText)
+        const trimmed = extracted.trim()
+        if (!trimmed) return defaultMessage
+
+        // Typical backend format:
+        // /tmp/printscript-123.ps:1:18 - 1:18: error: No se encontró operador en la expresión
+        const rangeMatch = trimmed.match(/:(\d+):(\d+)\s*-\s*(\d+):(\d+):\s*error:\s*([\s\S]*)$/)
+        if (rangeMatch) {
+            const [, startLine, startCol, endLine, endCol, message] = rangeMatch
+            const location = `${startLine}:${startCol}${startLine === endLine && startCol === endCol ? "" : ` - ${endLine}:${endCol}`}`
+            return `Línea ${location}: ${message.trim()}`
+        }
+
+        const singleMatch = trimmed.match(/:(\d+):(\d+):\s*error:\s*([\s\S]*)$/)
+        if (singleMatch) {
+            const [, line, col, message] = singleMatch
+            return `Línea ${line}:${col}: ${message.trim()}`
+        }
+
+        const errorIndex = trimmed.indexOf(": error:")
+        if (errorIndex !== -1) return trimmed.slice(errorIndex + ": error:".length).trim()
+
+        return trimmed
+    }
+
     async createSnippet(createSnippet: CreateSnippet): Promise<Snippet> {
         const payload = createSnippet as CreateSnippet & { description?: string; version?: string }
         const fileBlob = new Blob([createSnippet.content], { type: 'text/plain' })
@@ -349,7 +375,10 @@ export class RealSnippetOperations implements SnippetOperations {
             method: "POST",
             headers: await authHeaders(this.getToken)
         })
-        if (!res.ok) throw new Error("Error ejecutando test del snippet")
+        if (!res.ok) {
+            const txt = await res.text().catch(() => "")
+            throw new Error(RealSnippetOperations.formatPrintScriptError("Error ejecutando test del snippet", txt))
+        }
         return res.json()
     }
 
@@ -420,7 +449,8 @@ export class RealSnippetOperations implements SnippetOperations {
         })
         if (!res.ok) {
             const txt = await res.text().catch(() => "")
-            throw new Error(`Error ejecutando snippet: ${res.status} ${txt}`)
+            const message = RealSnippetOperations.formatPrintScriptError(`Error ejecutando snippet (${res.status})`, txt)
+            throw new Error(message)
         }
         return res.json()
     }

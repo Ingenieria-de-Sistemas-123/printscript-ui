@@ -382,7 +382,11 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                     )}
                     <Box pt={1} flex={1} marginTop={2}>
                         <Alert severity="info">Output</Alert>
-                        <SnippetExecution snippetId={id} />
+                        <SnippetExecution
+                            snippetId={id}
+                            disabled={isSnippetDirty}
+                            disabledReason="Guardá los cambios para ejecutar la versión actual."
+                        />
                     </Box>
                 </>
             }

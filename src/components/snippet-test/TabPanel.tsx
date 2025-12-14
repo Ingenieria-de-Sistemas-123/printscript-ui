@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {Alert, Box, Button, Stack, TextField, Typography} from "@mui/material";
 import {TestCase} from "../../types/TestCase.ts";
 import {SnippetTestExecution} from "../../types/snippetDetails.ts";
@@ -20,37 +20,39 @@ export const TabPanel = ({value, index, test, setTestCase, removeTestCase, onExe
     const isActive = value === index;
     const {createSnackbar} = useSnackbarContext();
     const [name, setName] = useState(test?.name ?? "");
-    const [input, setInput] = useState(test?.input?.join("\n") ?? "");
-    const [output, setOutput] = useState(test?.output?.join("\n") ?? "");
+    const [input, setInput] = useState(
+        Array.isArray(test?.input) ? test?.input?.join("\n") ?? "" : test?.input ?? ""
+    );
+    const [expectedOutput, setExpectedOutput] = useState(test?.expectedOutput ?? "");
+    const [description, setDescription] = useState(test?.description ?? "");
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         setName(test?.name ?? "");
-        setInput(test?.input?.join("\n") ?? "");
-        setOutput(test?.output?.join("\n") ?? "");
+        setInput(Array.isArray(test?.input) ? test?.input?.join("\n") ?? "" : test?.input ?? "");
+        setExpectedOutput(test?.expectedOutput ?? "");
+        setDescription(test?.description ?? "");
     }, [test]);
-
-    const parseLines = (value: string): string[] | undefined => {
-        const lines = value
-            .split("\n")
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
-        return lines.length ? lines : undefined;
-    };
 
     const handleSave = async () => {
         if (!name.trim()) {
             createSnackbar('error', "El nombre es obligatorio");
             return;
         }
+        if (!expectedOutput.trim()) {
+            createSnackbar('error', "La salida esperada es obligatoria");
+            return;
+        }
         setIsSaving(true);
         try {
+            const sanitizedInput = input.trim() ? input.trim() : undefined;
             await setTestCase({
                 id: test?.id,
                 name: name.trim(),
-                input: parseLines(input),
-                output: parseLines(output)
+                input: sanitizedInput,
+                expectedOutput: expectedOutput.trim(),
+                description: description.trim() || undefined,
             });
             createSnackbar('success', test ? "Test actualizado" : "Test creado");
         } catch (error) {
@@ -85,6 +87,22 @@ export const TabPanel = ({value, index, test, setTestCase, removeTestCase, onExe
         }
     };
 
+    const latestExecution = useMemo<SnippetTestExecution | undefined>(() => {
+        if (execution) return execution;
+        if (!test?.id || typeof test.lastRunExitCode === "undefined") return undefined;
+        const expected = (test.expectedOutput ?? "").trim();
+        const stdout = (test.lastRunOutput ?? "").trim();
+        const passed = test.lastRunExitCode === 0 && expected === stdout;
+        return {
+            id: test.id,
+            passed,
+            exitCode: test.lastRunExitCode ?? 1,
+            stdout: test.lastRunOutput,
+            stderr: test.lastRunError,
+            lastRunAt: test.lastRunAt ?? null,
+        };
+    }, [execution, test]);
+
     return (
         <div
             role="tabpanel"
@@ -105,6 +123,14 @@ export const TabPanel = ({value, index, test, setTestCase, removeTestCase, onExe
                         fullWidth
                     />
                     <TextField
+                        label="Descripción (opcional)"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        fullWidth
+                        multiline
+                        minRows={2}
+                    />
+                    <TextField
                         label="Entradas (una por línea)"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
@@ -113,18 +139,19 @@ export const TabPanel = ({value, index, test, setTestCase, removeTestCase, onExe
                         fullWidth
                     />
                     <TextField
-                        label="Salidas esperadas (una por línea)"
-                        value={output}
-                        onChange={(e) => setOutput(e.target.value)}
+                        label="Salida esperada"
+                        value={expectedOutput}
+                        onChange={(e) => setExpectedOutput(e.target.value)}
                         multiline
-                        minRows={4}
+                        minRows={3}
                         fullWidth
+                        required
                     />
                     <Stack direction="row" spacing={2} flexWrap="wrap">
                         <Button
                             variant="contained"
                             onClick={handleSave}
-                            disabled={isSaving || !name.trim()}
+                            disabled={isSaving || !name.trim() || !expectedOutput.trim()}
                         >
                             {test ? "Guardar" : "Crear"}
                         </Button>
@@ -149,19 +176,25 @@ export const TabPanel = ({value, index, test, setTestCase, removeTestCase, onExe
                             </Button>
                         )}
                     </Stack>
-                    {execution && (
-                        <Alert severity={execution.passed ? "success" : "error"}>
+                    {latestExecution && (
+                        <Alert severity={latestExecution.passed ? "success" : "error"}>
                             <Typography fontWeight="bold" mb={1}>
-                                Resultado: {execution.passed ? "OK" : "Error"} (exit {execution.exitCode})
+                                Resultado: {latestExecution.passed ? "OK" : "Error"} (exit {latestExecution.exitCode})
                             </Typography>
-                            {execution.stdout && (
-                                <Typography variant="body2" sx={{whiteSpace: 'pre-wrap'}}>
-                                    STDOUT {"\n"}{execution.stdout}
+                            <Typography variant="body2" mb={1}>
+                                Esperado: {test?.expectedOutput ?? expectedOutput}
+                            </Typography>
+                            {latestExecution.lastRunAt && (
+                                <Typography variant="caption" display="block" color="text.secondary" mb={1}>
+                                    Última ejecución: {latestExecution.lastRunAt}
                                 </Typography>
                             )}
-                            {execution.stderr && (
+                            <Typography variant="body2" sx={{whiteSpace: 'pre-wrap'}}>
+                                STDOUT {"\n"}{latestExecution.stdout ?? "—"}
+                            </Typography>
+                            {latestExecution.stderr && (
                                 <Typography variant="body2" sx={{whiteSpace: 'pre-wrap', mt: 1}}>
-                                    STDERR {"\n"}{execution.stderr}
+                                    STDERR {"\n"}{latestExecution.stderr}
                                 </Typography>
                             )}
                         </Alert>

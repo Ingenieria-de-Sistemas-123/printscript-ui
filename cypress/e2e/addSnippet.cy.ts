@@ -5,7 +5,7 @@ describe('Add snippet tests', () => {
             body: [
                 {
                     language: "printscript",
-                    extension: "ps",
+                    extension: "prs",
                     versions: ["1.0", "1.1"],
                     defaultVersion: "1.0",
                 },
@@ -24,10 +24,10 @@ describe('Add snippet tests', () => {
                     id: "snippet-created",
                     name: "Some snippet name",
                     description: "",
-                    content: `const snippet: String = "some snippet"\nprint(snippet)`,
+                    content: `let snippet: string = "some snippet"\nprintln(snippet)`,
                     language: "printscript",
                     version: "1.0",
-                    extension: "ps",
+                    extension: "prs",
                     complianceStatus: "VALID",
                     ownerName: "Alice",
                     relation: "OWNER",
@@ -68,7 +68,7 @@ describe('Add snippet tests', () => {
         cy.get("#name").type("Some snippet name");
         typeInEditor(
             '[data-testid="add-snippet-code-editor"]',
-            `const snippet: String = "some snippet"\nprint(snippet)`
+            `let snippet: string = "some snippet"\nprintln(snippet)`
         );
 
         cy.contains("button", "Save Snippet").should("not.be.disabled").click();
@@ -84,7 +84,7 @@ describe('Add snippet tests', () => {
         cy.wait("@getFileTypes");
 
         cy.get('[data-testid="upload-file-input"]').selectFile(
-            "cypress/fixtures/example_ps.ps",
+            "cypress/fixtures/example_ps.prs",
             { force: true }
         );
 

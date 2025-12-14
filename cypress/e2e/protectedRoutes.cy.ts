@@ -1,38 +1,50 @@
-import {AUTH0_DOMAIN, AUTH0_PASSWORD, AUTH0_USERNAME, FRONTEND_URL} from "../../src/utils/constants";
-
 describe('Protected routes test', () => {
+    const getAuth0Origin = () => {
+        const raw = Cypress.env("AUTH0_DOMAIN") as string;
+        if (!raw) throw new Error("AUTH0_DOMAIN no está configurado");
+        return raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`;
+    };
+
     it('should redirect to login when accessing a protected route unauthenticated', () => {
-        // Visit the protected route
-        cy.visit(`${FRONTEND_URL}/user-rules`);
+        const auth0Origin = getAuth0Origin();
 
-        // Check if the URL is redirected to the login page
+        cy.clearCookies();
+        cy.clearLocalStorage();
 
-        cy.contains('button', 'Log in').should('exist');
+        cy.visit("/rules");
+
+        cy.origin(auth0Origin, () => {
+            cy.get("input#username", { timeout: 15000 }).should("be.visible");
+        });
     });
 
     it('should display login content', () => {
-        // Visit the login page
-        cy.visit(FRONTEND_URL);
-        cy.contains('button', 'Log in').click();
+        const auth0Origin = getAuth0Origin();
 
-        cy.origin(AUTH0_DOMAIN, () => {
-            cy.contains('Log in').should('exist');
-            cy.contains('button', 'Continue').should('exist');
+        cy.clearCookies();
+        cy.clearLocalStorage();
+
+        cy.visit("/");
+
+        cy.origin(auth0Origin, () => {
+            cy.get("input#username").should("be.visible");
+            cy.get("input#password").should("be.visible");
+            cy.contains("button[value=default]", "Continue").should("be.visible");
         });
     });
 
     it('should not redirect to login when the user is already authenticated', () => {
-        cy.loginToAuth0(
-            AUTH0_USERNAME,
-            AUTH0_PASSWORD
-        )
+        const username = Cypress.env("AUTH0_USERNAME") as string;
+        const password = Cypress.env("AUTH0_PASSWORD") as string;
 
-        cy.visit(FRONTEND_URL);
+        cy.intercept("GET", "**/snippets/rules/formatting", { statusCode: 200, body: [] });
+        cy.intercept("GET", "**/snippets/rules/linting", { statusCode: 200, body: [] });
 
-        cy.wait(1000)
+        cy.loginToAuth0(username, password);
+        cy.visit("/rules");
 
-        // Check if the URL is redirected to the login page
-        cy.url().should('not.include', '/login');
+        cy.url().should("include", "/rules");
+        cy.contains("button", "Logout").should("be.visible");
     });
 
 })

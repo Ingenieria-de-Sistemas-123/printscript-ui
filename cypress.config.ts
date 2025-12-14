@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, "");
+
 export default defineConfig({
     e2e: {
         setupNodeEvents(_, config) {
@@ -17,6 +19,10 @@ export default defineConfig({
             console.log("Cypress AUTH0_DOMAIN:", config.env.AUTH0_DOMAIN);
             return config;
         },
-        baseUrl: "http://localhost:3000",
+        baseUrl: normalizeBaseUrl(
+            process.env.CYPRESS_BASE_URL ||
+                process.env.VITE_FRONTEND_URL ||
+                "http://localhost:3000"
+        ),
     },
 });

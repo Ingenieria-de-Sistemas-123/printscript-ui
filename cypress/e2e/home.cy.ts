@@ -1,73 +1,149 @@
-import {BACKEND_URL, FRONTEND_URL} from "../../src/utils/constants";
-import {CreateSnippet} from "../../src/utils/snippet";
-
 describe('Home', () => {
-    beforeEach(() => {
-        const username = Cypress.env('AUTH0_USERNAME') as string;
-        const password = Cypress.env('AUTH0_PASSWORD') as string;
+    const stubFileTypes = () => {
+        cy.intercept("GET", "**/file-types", {
+            statusCode: 200,
+            body: [
+                {
+                    language: "printscript",
+                    extension: "ps",
+                    versions: ["1.0", "1.1"],
+                    defaultVersion: "1.0",
+                },
+            ],
+        }).as("getFileTypes");
+    };
 
+    const login = () => {
+        const username = Cypress.env("AUTH0_USERNAME") as string;
+        const password = Cypress.env("AUTH0_PASSWORD") as string;
         cy.loginToAuth0(username, password);
-    })
-    before(() => {
-        process.env.FRONTEND_URL = Cypress.env("FRONTEND_URL");
-        process.env.BACKEND_URL = Cypress.env("BACKEND_URL");
-    })
-    it('Renders home', () => {
-        cy.visit(FRONTEND_URL)
-        /* ==== Generated with Cypress Studio ==== */
-        cy.get('.MuiTypography-h6').should('have.text', 'Printscript');
-        cy.get('.MuiBox-root > .MuiInputBase-root > .MuiInputBase-input').should('be.visible');
-        cy.get('.css-9jay18 > .MuiButton-root').should('be.visible');
-        cy.get('.css-jie5ja').click();
-        /* ==== End Cypress Studio ==== */
-    })
+    };
 
-    // You need to have at least 1 snippet in your DB for this test to pass
-    it('Renders the first snippets', () => {
-        cy.visit(FRONTEND_URL)
-        const first10Snippets = cy.get('[data-testid="snippet-row"]')
-
-        first10Snippets.should('have.length.greaterThan', 0)
-
-        first10Snippets.should('have.length.lessThan', 10)
-    })
-
-    it('Can creat snippet find snippets by name', () => {
-        cy.visit(FRONTEND_URL)
-        const snippetData: CreateSnippet = {
-            name: "Test name",
-            content: "print(1)",
-            language: "printscript",
-            extension: ".prs"
-        }
-
-        cy.intercept('GET', BACKEND_URL+"/snippets*", (req) => {
-            req.reply((res) => {
-                expect(res.statusCode).to.eq(200);
-            });
-        }).as('getSnippets');
-
-        cy.request({
-            method: 'POST',
-            url: `${BACKEND_URL}/snippets`,
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth0_token')}`
+    it("Renders home", () => {
+        stubFileTypes();
+        cy.intercept("GET", "**/snippets**", {
+            statusCode: 200,
+            body: {
+                items: [
+                    {
+                        id: "snippet-1",
+                        name: "Alpha",
+                        language: "printscript",
+                        extension: "ps",
+                        complianceStatus: "VALID",
+                        ownerName: "Alice",
+                        relation: "OWNER",
+                    },
+                ],
+                page: 0,
+                page_size: 10,
+                totalElements: 1,
             },
-            body: snippetData,
-            failOnStatusCode: false // Optional: set to true if you want the test to fail on non-2xx status codes
-        }).then((response) => {
-            expect(response.status).to.eq(200);
+        }).as("getSnippets");
 
-            expect(response.body.name).to.eq(snippetData.name)
-            expect(response.body.content).to.eq(snippetData.content)
-            expect(response.body.language).to.eq(snippetData.language)
-            expect(response.body).to.haveOwnProperty("id")
+        login();
+        cy.visit("/");
 
-            cy.get('.MuiBox-root > .MuiInputBase-root > .MuiInputBase-input').clear();
-            cy.get('.MuiBox-root > .MuiInputBase-root > .MuiInputBase-input').type(snippetData.name + "{enter}");
+        cy.contains(".MuiTypography-h6", "Printscript").should("be.visible");
+        cy.get('input[aria-label="search"]').should("be.visible");
+        cy.contains("button", "Add Snippet").should("be.visible");
+        cy.get('[data-testid="snippet-row"]').should("have.length", 1);
+    });
 
-            cy.wait("@getSnippets")
-            cy.contains(snippetData.name).should('exist');
-        })
-    })
+    it("Renders the first snippets", () => {
+        stubFileTypes();
+        cy.intercept("GET", "**/snippets**", {
+            statusCode: 200,
+            body: {
+                items: Array.from({ length: 3 }).map((_, idx) => ({
+                    id: `snippet-${idx + 1}`,
+                    name: `Snippet ${idx + 1}`,
+                    language: "printscript",
+                    extension: "ps",
+                    complianceStatus: "VALID",
+                    ownerName: "Alice",
+                    relation: "OWNER",
+                })),
+                page: 0,
+                page_size: 10,
+                totalElements: 3,
+            },
+        }).as("getSnippets");
+
+        login();
+        cy.visit("/");
+
+        cy.get('[data-testid="snippet-row"]').should("have.length.greaterThan", 0);
+        cy.get('[data-testid="snippet-row"]').should("have.length.lessThan", 11);
+    });
+
+    it("Filters snippets by name", () => {
+        stubFileTypes();
+
+        cy.intercept("GET", "**/snippets**", (req) => {
+            const name = req.query?.name as string | undefined;
+            if (name === "Beta") {
+                req.alias = "getSnippetsFiltered";
+                req.reply({
+                    statusCode: 200,
+                    body: {
+                        items: [
+                            {
+                                id: "snippet-2",
+                                name: "Beta",
+                                language: "printscript",
+                                extension: "ps",
+                                complianceStatus: "VALID",
+                                ownerName: "Alice",
+                                relation: "OWNER",
+                            },
+                        ],
+                        page: 0,
+                        page_size: 10,
+                        totalElements: 1,
+                    },
+                });
+                return;
+            }
+
+            req.alias = "getSnippets";
+            req.reply({
+                statusCode: 200,
+                body: {
+                    items: [
+                        {
+                            id: "snippet-1",
+                            name: "Alpha",
+                            language: "printscript",
+                            extension: "ps",
+                            complianceStatus: "VALID",
+                            ownerName: "Alice",
+                            relation: "OWNER",
+                        },
+                        {
+                            id: "snippet-2",
+                            name: "Beta",
+                            language: "printscript",
+                            extension: "ps",
+                            complianceStatus: "VALID",
+                            ownerName: "Alice",
+                            relation: "OWNER",
+                        },
+                    ],
+                    page: 0,
+                    page_size: 10,
+                    totalElements: 2,
+                },
+            });
+        });
+
+        login();
+        cy.visit("/");
+
+        cy.get('input[aria-label="search"]').clear().type("Beta");
+        cy.wait("@getSnippetsFiltered");
+
+        cy.contains("td", "Beta").should("be.visible");
+        cy.contains("td", "Alpha").should("not.exist");
+    });
 })

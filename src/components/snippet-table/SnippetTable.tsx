@@ -15,7 +15,7 @@ import {
     TextField
 } from "@mui/material";
 import {AddSnippetModal} from "./AddSnippetModal.tsx";
-import {useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {Add, Search} from "@mui/icons-material";
 import {LoadingSnippetRow, SnippetRow} from "./SnippetRow.tsx";
 import {CreateSnippetWithLang, getFileLanguage} from "../../utils/snippet.ts";
@@ -33,12 +33,23 @@ type SnippetTableProps = {
     onChangeFilters: (filters: SnippetListFilters) => void;
 }
 
+const readFileAsText = (file: File): Promise<string> => {
+    if (typeof file.text === "function") return file.text()
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result ?? ""))
+        reader.onerror = () => reject(reader.error ?? new Error("Error reading file"))
+        reader.readAsText(file)
+    })
+}
+
 export const SnippetTable = (props: SnippetTableProps) => {
     const {snippets, handleClickSnippet, loading,handleSearchSnippet, filters, onChangeFilters} = props;
     const [addModalOpened, setAddModalOpened] = useState(false);
     const [popoverMenuOpened, setPopoverMenuOpened] = useState(false)
     const [snippet, setSnippet] =
         useState<(CreateSnippetWithLang & { description?: string; version?: string }) | undefined>()
+    const [pendingFile, setPendingFile] = useState<File | null>(null)
 
     const popoverRef = useRef<HTMLButtonElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -46,20 +57,14 @@ export const SnippetTable = (props: SnippetTableProps) => {
     const {createSnackbar} = useSnackbarContext()
     const {data: fileTypes} = useGetFileTypes();
 
-    const handleLoadSnippet = async (target: EventTarget & HTMLInputElement) => {
-        const files = target.files
-        if (!files || !files.length) {
-            createSnackbar('error',"Please select at leat one file")
-            return
-        }
-        const file = files[0]
+    const loadSnippetFromFile = useCallback((file: File, supportedFileTypes: typeof fileTypes) => {
         const splitName = file.name.split(".")
-        const fileType = getFileLanguage(fileTypes ?? [], splitName.at(-1))
+        const fileType = getFileLanguage(supportedFileTypes ?? [], splitName.at(-1))
         if (!fileType) {
             createSnackbar('error', `File type ${splitName.at(-1)} not supported`)
             return
         }
-        file.text().then((text) => {
+        readFileAsText(file).then((text) => {
             setSnippet({
                 name: splitName[0],
                 content: text,
@@ -72,9 +77,32 @@ export const SnippetTable = (props: SnippetTableProps) => {
             console.error(e)
         }).finally(() => {
             setAddModalOpened(true)
-            target.value = ""
         })
+    }, [createSnackbar])
+
+    const handleLoadSnippet = async (target: EventTarget & HTMLInputElement) => {
+        const files = target.files
+        if (!files || !files.length) {
+            createSnackbar('error',"Please select at leat one file")
+            return
+        }
+        const file = files[0]
+        target.value = ""
+
+        if (!fileTypes?.length) {
+            setPendingFile(file)
+            return
+        }
+
+        loadSnippetFromFile(file, fileTypes)
     }
+
+    useEffect(() => {
+        if (!pendingFile) return
+        if (!fileTypes?.length) return
+        loadSnippetFromFile(pendingFile, fileTypes)
+        setPendingFile(null)
+    }, [pendingFile, fileTypes, loadSnippetFromFile])
 
     function handleClickMenu() {
         setPopoverMenuOpened(false)

@@ -16,7 +16,7 @@ export type SnippetTest = {
   id: string;
   name: string;
   description?: string | null;
-  input?: string[];
+  input?: string;
   expectedOutput: string;
   lastRunAt?: string | null;
   lastRunExitCode?: number | null;

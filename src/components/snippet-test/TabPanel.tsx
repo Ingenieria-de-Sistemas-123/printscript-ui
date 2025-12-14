@@ -20,7 +20,9 @@ export const TabPanel = ({value, index, test, setTestCase, removeTestCase, onExe
     const isActive = value === index;
     const {createSnackbar} = useSnackbarContext();
     const [name, setName] = useState(test?.name ?? "");
-    const [input, setInput] = useState(test?.input?.join("\n") ?? "");
+    const [input, setInput] = useState(
+        Array.isArray(test?.input) ? test?.input?.join("\n") ?? "" : test?.input ?? ""
+    );
     const [expectedOutput, setExpectedOutput] = useState(test?.expectedOutput ?? "");
     const [description, setDescription] = useState(test?.description ?? "");
     const [isSaving, setIsSaving] = useState(false);
@@ -28,18 +30,10 @@ export const TabPanel = ({value, index, test, setTestCase, removeTestCase, onExe
 
     useEffect(() => {
         setName(test?.name ?? "");
-        setInput(test?.input?.join("\n") ?? "");
+        setInput(Array.isArray(test?.input) ? test?.input?.join("\n") ?? "" : test?.input ?? "");
         setExpectedOutput(test?.expectedOutput ?? "");
         setDescription(test?.description ?? "");
     }, [test]);
-
-    const parseLines = (value: string): string[] | undefined => {
-        const lines = value
-            .split("\n")
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
-        return lines.length ? lines : undefined;
-    };
 
     const handleSave = async () => {
         if (!name.trim()) {
@@ -52,10 +46,11 @@ export const TabPanel = ({value, index, test, setTestCase, removeTestCase, onExe
         }
         setIsSaving(true);
         try {
+            const sanitizedInput = input.trim() ? input.trim() : undefined;
             await setTestCase({
                 id: test?.id,
                 name: name.trim(),
-                input: parseLines(input),
+                input: sanitizedInput,
                 expectedOutput: expectedOutput.trim(),
                 description: description.trim() || undefined,
             });

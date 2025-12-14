@@ -72,7 +72,7 @@ type RawSnippetTest = {
     id?: string | null;
     name?: string | null;
     description?: string | null;
-    input?: string[] | null;
+    input?: string[] | string | null;
     expectedOutput?: string | null;
     lastRunAt?: string | null;
     lastRunExitCode?: number | null;
@@ -103,16 +103,33 @@ const mapLintIssue = (issue: RawLintIssue): SnippetLintError => ({
     endCol: issue.endCol ?? issue.startCol ?? 0,
 });
 
+const normalizeTestInput = (input?: string[] | string | null): string | undefined => {
+    if (!input) return undefined;
+    return Array.isArray(input) ? input.filter(Boolean).join("\n") : input;
+};
+
 const mapSnippetTest = (test: RawSnippetTest): SnippetTest => ({
     id: test.id ?? "unknown",
     name: test.name ?? "Test",
     description: test.description ?? undefined,
-    input: test.input ?? undefined,
+    input: normalizeTestInput(test.input),
     expectedOutput: test.expectedOutput ?? "",
     lastRunAt: test.lastRunAt ?? null,
     lastRunExitCode: test.lastRunExitCode ?? null,
     lastRunOutput: test.lastRunOutput ?? null,
     lastRunError: test.lastRunError ?? null,
+});
+
+const mapTestCase = (test: RawSnippetTest): TestCase => ({
+    id: test.id ?? "unknown",
+    name: test.name ?? "Test",
+    description: test.description ?? undefined,
+    input: normalizeTestInput(test.input),
+    expectedOutput: test.expectedOutput ?? "",
+    lastRunExitCode: test.lastRunExitCode ?? undefined,
+    lastRunOutput: test.lastRunOutput ?? undefined,
+    lastRunError: test.lastRunError ?? undefined,
+    lastRunAt: test.lastRunAt ?? undefined,
 });
 
 const mapSnippetResponse = (payload: RawSnippetResponse): SnippetDetails => ({
@@ -340,7 +357,8 @@ export class RealSnippetOperations implements SnippetOperations {
             headers: await authHeaders(this.getToken)
         })
         if (!res.ok) throw new Error("Error obteniendo test cases")
-        return res.json()
+        const data = await res.json()
+        return (data ?? []).map((test: RawSnippetTest) => mapTestCase(test))
     }
 
     async saveSnippetTest(snippetId: string, testCase: Partial<TestCase>): Promise<TestCase> {
@@ -349,10 +367,11 @@ export class RealSnippetOperations implements SnippetOperations {
             ? `${BASE_URL}/snippets/tests/${snippetId}/${testCase.id}`
             : `${BASE_URL}/snippets/tests/${snippetId}`
         const method = hasId ? "PUT" : "POST"
+        const inputValue = Array.isArray(testCase.input) ? testCase.input.join("\n") : testCase.input
         const payload = {
             name: testCase.name,
             description: testCase.description,
-            input: testCase.input,
+            input: inputValue,
             expectedOutput: testCase.expectedOutput ?? "",
         }
 
